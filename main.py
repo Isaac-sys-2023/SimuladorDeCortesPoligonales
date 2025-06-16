@@ -7,13 +7,14 @@ def cordenada_forma(name):
         "triangulo": [(30, 5), (55, 50), (5, 50)],
         "pentagono": [(30, 5), (60, 20), (50, 50), (10, 50), (0, 20)],
         "hexagono": [(20, 5), (60, 5), (75, 30), (60, 55), (20, 55), (5, 30)],
-        "estrella": [(30, 0), (40, 20), (60, 20), (45, 35), (50, 55), (30, 45),
-                      (10, 55), (15, 35), (0, 20), (20, 20)],
         "rombo": [(30, 5), (55, 30), (30, 55), (5, 30)],
         "punta": [(30, 5), (60, 15), (30, 25), (0, 15)],
-        "flecha": [(0, 20), (20, 0), (20, 10), (50, 10), (50, 30), (20, 30), (20, 40)],
         "trapecio": [(20, 10), (50, 10), (60, 50), (10, 50)],
-        "trapezoide": [(10, 10), (60, 10), (50, 50), (20, 50)]
+        "trapezoide": [(10, 10), (60, 10), (50, 50), (20, 50)],
+        "trapecio_inclinado": [(10, 10), (70, 10), (60, 50), (0, 50)],
+        "escalera": [(10, 10), (40, 10), (40, 25), (70, 25), (70, 50), (10, 50)],
+        "figura_L": [(10, 10), (30, 10), (30, 40), (60, 40), (60, 60), (10, 60)]
+
     }
     return shapes.get(name, [])
 
@@ -62,18 +63,28 @@ def abrir_ventana_datos(nombre_figura):
         agregar_campo("lado")
     elif nombre_figura == "hexagono":
         agregar_campo("lado")
-    elif nombre_figura.startswith("estrella"):
-        agregar_campo("radio")
     elif nombre_figura == "rombo":
         agregar_campo("diagonal mayor")
         agregar_campo("diagonal menor")
-    elif nombre_figura.startswith("flecha") or nombre_figura == "punta":
-        agregar_campo("ancho")
-        agregar_campo("alto")
     elif nombre_figura == "trapezoide":
         agregar_campo("base mayor")
         agregar_campo("base menor")
         agregar_campo("altura")
+    elif nombre_figura == "trapecio_inclinado":
+        agregar_campo("base mayor")
+        agregar_campo("base menor")
+        agregar_campo("altura")
+    elif nombre_figura == "escalera":
+        agregar_campo("altura total")
+        agregar_campo("ancho total")
+        agregar_campo("altura grada")
+        agregar_campo("ancho grada")
+    elif nombre_figura == "figura_L":
+        agregar_campo("ancho brazo")
+        agregar_campo("alto brazo")
+        agregar_campo("ancho base")
+
+
 
     #boton
     def aceptar():
@@ -83,7 +94,6 @@ def abrir_ventana_datos(nombre_figura):
             "parametros": datos
         }
         figuras_en_sistema.append(figura_info)
-        print(f"Figura registrada: {figura_info}")
         ventana.destroy()
     
 
@@ -143,8 +153,9 @@ scrollbar.pack(side="right", fill="y")
 
 figuras = [
     "rectangulo", "cuadrado", "triangulo", "pentagono", "hexagono",
-    "estrella","rombo", "punta", "flecha",
-    "trapecio", "trapezoide"
+    "rombo", "punta","trapecio", "trapezoide",
+    "trapecio_inclinado", "escalera","figura_L"
+
 ]
 
 for fig in figuras:
