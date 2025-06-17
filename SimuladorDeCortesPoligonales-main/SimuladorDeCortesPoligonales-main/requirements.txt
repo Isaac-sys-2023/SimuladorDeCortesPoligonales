@@ -1,0 +1,8 @@
+# Librerías principales
+tkinter
+matplotlib
+shapely
+
+# Dependencias adicionales
+numpy
+pillow
