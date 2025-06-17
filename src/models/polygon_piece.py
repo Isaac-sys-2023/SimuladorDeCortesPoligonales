@@ -21,7 +21,7 @@ class PolygonPiece:
         self.vertices = vertices
         self.width = width
         self.height = height
-        self.polygon: Polygon | None = None
+        self.polygon = Polygon(vertices)
 
     def scale_to_unit(self):
         xs, ys = zip(*self.vertices)
@@ -33,6 +33,7 @@ class PolygonPiece:
         self.vertices = [
             ((x - min_x) * scale, (y - min_y) * scale) for x, y in self.vertices
         ]
+        self.polygon = Polygon(self.vertices)
 
     def create_instance(self, width: float, height: float):
         new_piece = PolygonPiece(
@@ -46,11 +47,11 @@ class PolygonPiece:
 
     def move(self, dx, dy):
         moved_poly = translate(self.polygon, dx, dy)
-        return PolygonPiece(list(moved_poly.exterior.coords)[:-1])
+        return PolygonPiece(self.name, list(moved_poly.exterior.coords)[:-1])
 
     def reflect(self):
         reflected = [(-x, -y) for (x, y) in self.vertices]
-        return PolygonPiece(reflected)
+        return PolygonPiece(self.name, reflected)
 
     def save_to_txt(self, filepath: str):
         self.scale_to_unit()

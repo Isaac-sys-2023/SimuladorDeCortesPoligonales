@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon
+from shapely.affinity import translate
 
 from src.models import Frame, Placement, PolygonPiece
 
@@ -89,7 +90,7 @@ class PlacementVisualizer:
             offset_y = 0
             for i, piece in enumerate(self.not_placed):
                 poly = piece.polygon
-                moved_poly = poly.translate(xoff=offset_x, yoff=offset_y)
+                moved_poly = translate(poly, xoff=offset_x, yoff=offset_y)
                 patch = MplPolygon(
                     list(moved_poly.exterior.coords),
                     closed=True,
@@ -117,3 +118,84 @@ class PlacementVisualizer:
         ax.legend(loc="upper right")
         plt.xlabel("X")
         plt.ylabel("Y")
+        plt.show()
+
+    def visualize(self, fig):
+        """
+        Visualiza la colocación en una figura de matplotlib.
+        
+        :param fig: Figura de matplotlib donde dibujar
+        :type fig: matplotlib.figure.Figure
+        """
+        ax = fig.add_subplot(111)
+        colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
+
+        # Dibujar marcos
+        for idx, frame in enumerate(self.frames):
+            x, y = frame.polygon.exterior.xy
+            ax.plot(
+                x,
+                y,
+                color="black",
+                linewidth=2,
+                label=f"Marco {idx+1}" if idx == 0 else "",
+            )
+
+        # Dibujar piezas colocadas
+        for i, placement in enumerate(self.placements):
+            poly = placement.piece.polygon
+            patch = MplPolygon(
+                list(poly.exterior.coords),
+                closed=True,
+                facecolor=colors[i % len(colors)],
+                alpha=0.6,
+                edgecolor="black",
+                label=None,
+            )
+            ax.add_patch(patch)
+            # Etiqueta con el nombre de la pieza
+            centroid = poly.centroid
+            ax.text(
+                centroid.x,
+                centroid.y,
+                placement.piece.name,
+                fontsize=8,
+                ha="center",
+                va="center",
+                color="black",
+            )
+
+        # Dibujar piezas no colocadas (en una esquina)
+        if self.not_placed:
+            offset_x = max([frame.polygon.bounds[2] for frame in self.frames]) + 10
+            offset_y = 0
+            for i, piece in enumerate(self.not_placed):
+                poly = piece.polygon
+                moved_poly = translate(poly, xoff=offset_x, yoff=offset_y)
+                patch = MplPolygon(
+                    list(moved_poly.exterior.coords),
+                    closed=True,
+                    facecolor="none",
+                    edgecolor="red",
+                    linestyle="--",
+                    label="No colocada" if i == 0 else "",
+                )
+                ax.add_patch(patch)
+                centroid = moved_poly.centroid
+                ax.text(
+                    centroid.x,
+                    centroid.y,
+                    piece.name,
+                    fontsize=8,
+                    ha="center",
+                    va="center",
+                    color="red",
+                )
+                offset_y += poly.bounds[3] - poly.bounds[1] + 5  # Espaciado
+
+        # Mostrar desperdicio
+        ax.set_title(f"Colocación de piezas - Desperdicio: {self.waste:.2f} unidades²")
+        ax.set_aspect("equal")
+        ax.legend(loc="upper right")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")

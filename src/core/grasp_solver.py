@@ -1,6 +1,7 @@
 import random
 from src.models import Frame, Placement, PolygonPiece
 from .nfp import NFPComputer
+from shapely.geometry import Point
 
 class GraspSolver:
     """
@@ -15,33 +16,23 @@ class GraspSolver:
     :vartype iterations: int
     """
 
-    def __init__(
-        self, frames: list[Frame], pieces: list[PolygonPiece], iterations: int = 10, rcl_size: int = 3
-    ):
+    def __init__(self, pieces: list[PolygonPiece], frames: list[Frame], iterations: int = 10, rcl_size: int = 3):
         """
-        Inicializa el solucionador GRASP.
+        Inicializa el solver GRASP para el problema de colocación de piezas poligonales.
 
-        :param frames: Lista de marcos disponibles.
-        :type frames: list[Frame]
-        :param pieces: Lista de piezas a colocar.
-        :type pieces: list[PolygonPiece]
-        :param iterations: Número de iteraciones GRASP. Por defecto es 10.
-        :type iterations: int, optional
-        :param rcl_size: Tamaño de la lista restringida de candidatos (RCL). Por defecto es 3.
-        :type rcl_size: int, optional
+        :param pieces: Lista de piezas poligonales a colocar
+        :param frames: Lista de marcos rectangulares donde colocar las piezas
+        :param iterations: Número de iteraciones del algoritmo GRASP
+        :param rcl_size: Tamaño de la lista restringida de candidatos (RCL)
         """
-        self.frames = frames
         self.pieces = pieces
+        self.frames = frames
         self.iterations = iterations
         self.rcl_size = rcl_size
 
     def solve(self):
         """
         Ejecuta el algoritmo GRASP para encontrar la mejor distribución de piezas en los marcos.
-        Intenta colocar la mayor cantidad de piezas posible, minimizando el desperdicio.
-
-        :return: Diccionario con la lista de colocaciones óptimas y la lista de piezas no colocadas.
-        :rtype: dict{'placements': list[Placement], 'not_placed': list[PolygonPiece], 'waste': float}
         """
         best_solution = None
         best_not_placed = None
@@ -49,7 +40,7 @@ class GraspSolver:
         best_placed_count = -1
 
         for _ in range(self.iterations):
-            pieces_left = self.pieces[:]
+            pieces_left = self.pieces[:]  # Usar una copia de la lista, no de los objetos
             placements = []
             used_frames = [frame.copy() for frame in self.frames]
             not_placed = []
@@ -63,11 +54,19 @@ class GraspSolver:
 
                 placed = False
                 for frame in used_frames:
-                    pos = self.find_feasible_position_nfp(frame, placements, piece)
-                    if pos:
-                        moved_piece = piece.move(*pos)
-                        placements.append(Placement(moved_piece, frame, pos))
-                        placed = True
+                    # Intentar colocar la pieza en diferentes posiciones
+                    for attempt in range(5):  # Intentar hasta 5 veces con diferentes posiciones
+                        pos = self.find_feasible_position_nfp(frame, placements, piece)
+                        if pos:
+                            moved_piece = piece.move(*pos)
+                            # Verificar que no hay solapamiento
+                            if not any(moved_piece.polygon.intersects(p.piece.polygon) for p in placements):
+                                placements.append(Placement(moved_piece, frame, pos))
+                                placed = True
+                                break
+                        if placed:
+                            break
+                    if placed:
                         break
 
                 if not placed:
@@ -96,65 +95,60 @@ class GraspSolver:
     def find_feasible_position_nfp(self, frame: Frame, placements: list[Placement], piece: PolygonPiece):
         """
         Busca una posición factible para la pieza en el marco usando NFP.
-
-        :param frame: Marco donde se intenta colocar la pieza.
-        :type frame: Frame
-        :param placements: Lista de piezas ya colocadas.
-        :type placements: list[Placement]
-        :param piece: Pieza a colocar.
-        :type piece: PolygonPiece
-        :return: Coordenadas (x, y) de la posición factible, o None si no hay.
-        :rtype: tuple[float, float] or None
         """
-        # Comienza con el área disponible igual al marco
-        available_region = frame.polygon
-
-        # Resta las piezas ya colocadas en este marco del área disponible
-        for p in placements:
-            if p.frame == frame:
-                available_region = available_region.difference(p.piece.polygon)
-
         # Si no hay piezas colocadas aún, usar la esquina inferior izquierda del marco
         if not any(p.frame == frame for p in placements):
-            minx, miny, _, _ = available_region.bounds
+            minx, miny, _, _ = frame.polygon.bounds
             return (minx, miny)
+
+        # Comienza con el área disponible igual al marco
+        available_region = frame.polygon
 
         # Calcula los NFP para todas las piezas ya colocadas en este marco
         nfp_union = None
         for p in placements:
             if p.frame == frame:
-                nfp = NFPComputer.compute_nfp(p.piece.polygon, piece.polygon)
-                nfp = nfp.intersection(available_region)
+                nfp = NFPComputer.compute_nfp(p.piece, piece)
                 if nfp_union is None:
                     nfp_union = nfp
                 else:
                     nfp_union = nfp_union.union(nfp)
 
-        # La región factible es la intersección entre el área disponible y la unión de los NFP
-        feasible_region = (
-            available_region
-            if nfp_union is None
-            else available_region.intersection(nfp_union)
-        )
+        # La región factible es el área disponible menos la unión de los NFP
+        if nfp_union:
+            feasible_region = available_region.difference(nfp_union)
+        else:
+            feasible_region = available_region
 
         # Si no hay región factible, retorna None
         if feasible_region.is_empty:
             return None
 
-        # Si la región factible es un polígono o multipolígono, busca el punto más bajo
+        # Buscar una posición factible en la región
         if feasible_region.geom_type == "Polygon":
-            minx, miny, _, _ = feasible_region.bounds
-            return (minx, miny)
+            # Intentar diferentes puntos dentro del polígono
+            minx, miny, maxx, maxy = feasible_region.bounds
+            for x in range(int(minx), int(maxx), 2):  # Paso de 2 para reducir el número de intentos
+                for y in range(int(miny), int(maxy), 2):
+                    point = (x, y)
+                    if feasible_region.contains(Point(point)):
+                        test_piece = piece.move(x, y)
+                        if frame.contains(test_piece) and not any(
+                            test_piece.polygon.intersects(p.piece.polygon) for p in placements if p.frame == frame
+                        ):
+                            return point
         elif feasible_region.geom_type == "MultiPolygon":
-            # Elige el polígono con el menor miny, luego menor minx
-            min_point = None
+            # Intentar en cada polígono de la región factible
             for poly in feasible_region.geoms:
-                x, y, _, _ = poly.bounds
-                if (
-                    (min_point is None)
-                    or (y < min_point[1])
-                    or (y == min_point[1] and x < min_point[0])
-                ):
-                    min_point = (x, y)
+                minx, miny, maxx, maxy = poly.bounds
+                for x in range(int(minx), int(maxx), 2):
+                    for y in range(int(miny), int(maxy), 2):
+                        point = (x, y)
+                        if poly.contains(Point(point)):
+                            test_piece = piece.move(x, y)
+                            if frame.contains(test_piece) and not any(
+                                test_piece.polygon.intersects(p.piece.polygon) for p in placements if p.frame == frame
+                            ):
+                                return point
 
-            return min_point
+        return None
