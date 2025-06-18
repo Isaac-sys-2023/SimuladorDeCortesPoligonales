@@ -64,7 +64,7 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None):
         figuras_en_sistema.append(pieza)
         actualizar_lista_piezas()
 
-def crear_label_figura(parent, nombre):
+def crear_label_figura(parent, nombre, color):
     """
     Crea un widget que muestra una figura predeterminada con su nombre.
     Al hacer clic en el widget se abre la ventana para ingresar las dimensiones.
@@ -82,7 +82,7 @@ def crear_label_figura(parent, nombre):
     
     canvas = tk.Canvas(frame, width=80, height=80)
     canvas.pack()
-    dibujar_figura(canvas, nombre)
+    dibujar_figura(canvas, nombre, color)
 
     # Vincular eventos de clic para abrir la ventana de datos
     frame.bind("<Button-1>", lambda e: abrir_ventana_datos(nombre))
@@ -206,7 +206,7 @@ def abrir_ventana_datos(nombre_figura):
 
     tk.Button(ventana, text="Aceptar", command=calcular_dimensiones).pack(pady=10)
 
-def dibujar_figura(canvas, nombre):
+def dibujar_figura(canvas, nombre, color):
     """
     Dibuja una figura en el canvas especificado.
     
@@ -217,7 +217,7 @@ def dibujar_figura(canvas, nombre):
     """
     coords = cordenada_forma(nombre)
     if coords:
-        canvas.create_polygon(coords, outline="black", fill="")
+        canvas.create_polygon(coords, outline="black", fill=color)
 
 def actualizar_lista_piezas():
     """
@@ -233,7 +233,6 @@ def actualizar_lista_piezas():
 
     for i, pieza in enumerate(figuras_en_sistema):
         color = colores[i % len(colores)]
-
         contenedor = tk.Frame(frame_lista_piezas, bd=1, relief="solid", padx=4, pady=2)
         contenedor.pack(fill="x", pady=3)
 
@@ -462,8 +461,14 @@ figuras = [
 ]
 
 # Crear los widgets para cada figura predeterminada
-for fig in figuras:
-    crear_label_figura(scrollable_frame, fig)
+colores = [
+        "#FF9999", "#99CCFF", "#99FF99", "#FFCC99", "#CCCCFF", "#FFD699",
+        "#E0B0FF", "#F7BE81", "#82CAFA", "#FFB6C1", "#B0E0E6", "#C3FDB8"
+    ]
+
+for i, fig in enumerate(figuras):
+    color = colores[i % len(colores)]
+    crear_label_figura(scrollable_frame, fig, color)
 
 # Iniciar la aplicación
 root.mainloop()

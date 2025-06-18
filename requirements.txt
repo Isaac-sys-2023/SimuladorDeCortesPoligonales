@@ -6,3 +6,4 @@ shapely
 # Dependencias adicionales
 numpy
 pillow
+openpyxl
