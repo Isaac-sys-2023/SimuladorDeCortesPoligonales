@@ -287,7 +287,7 @@ def simular():
             base = float(entry_base.get())
             altura = float(entry_altura.get())
         except ValueError:
-            messagebox.showerror("Error", "Ingresa valores numéricos válidos para base y altura.")
+            messagebox.showerror("Error", "Ingresa valores numéricos válidos para base y altura del marco.")
             return
 
         frame = Frame(base, altura)
