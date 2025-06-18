@@ -316,6 +316,8 @@ def simular():
             tk.Label(frame_resultados, text=f"Piezas colocadas: {len(result['placements'])}").pack()
             tk.Label(frame_resultados, text=f"Piezas no colocadas: {len(result['not_placed'])}").pack()
             tk.Label(frame_resultados, text=f"Área desperdiciada: {result['waste']:.2f}").pack()
+            tk.Label(frame_resultados, text=f"Área total: {(base * altura):.2f}").pack()
+            tk.Label(frame_resultados, text=f"Porcentaje de aprovechamiento: {((1 - (result['waste'] / (base * altura)))*100):.2f} %").pack()
         else:
             messagebox.showinfo("Resultado", "No se pudo colocar ninguna pieza")
     except Exception as e:
