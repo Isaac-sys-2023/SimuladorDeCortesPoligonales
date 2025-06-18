@@ -269,6 +269,7 @@ def actualizar_lista_piezas():
         tk.Button(info_frame, text="❌", command=eliminar, fg="red", font=("Arial", 8)).pack(anchor="e", pady=2)
 
 
+
 def simular():
     """
     Ejecuta la simulación de colocación de piezas usando el algoritmo GRASP.
@@ -280,26 +281,25 @@ def simular():
 
     try:
         # Crear el marco con las dimensiones correctas
-        frame = Frame(100, 60)  # Tamaño del marco
-        
-        # Crear el solver con las piezas y el marco
+        try:
+            base = float(entry_base.get())
+            altura = float(entry_altura.get())
+        except ValueError:
+            messagebox.showerror("Error", "Ingresa valores numéricos válidos para base y altura.")
+            return
+
+        frame = Frame(base, altura)
         solver = GraspSolver(pieces=figuras_en_sistema, frames=[frame])
-        
-        # Ejecutar la simulación
         result = solver.solve()
-        
-        # Mostrar resultados
+
         if result["placements"]:
-            # Limpiar el canvas del gráfico
             for widget in frame_grafico.winfo_children():
                 widget.destroy()
-            
-            # Crear la visualización
+
             fig = plt.Figure(figsize=(6, 6))
             canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
             canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Visualizar la solución con todos los argumentos requeridos
+
             visualizer = PlacementVisualizer(
                 frames=[frame],
                 placements=result["placements"],
@@ -308,11 +308,10 @@ def simular():
             )
             visualizer.visualize(fig)
             canvas.draw()
-            
-            # Actualizar resultados
+
             for widget in frame_resultados.winfo_children():
                 widget.destroy()
-            
+
             tk.Label(frame_resultados, text="Resultados", font=("Arial", 12, "bold")).pack(pady=10)
             tk.Label(frame_resultados, text=f"Piezas colocadas: {len(result['placements'])}").pack()
             tk.Label(frame_resultados, text=f"Piezas no colocadas: {len(result['not_placed'])}").pack()
@@ -368,6 +367,22 @@ canvas_scroll.configure(yscrollcommand=scrollbar.set)
 
 canvas_scroll.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
+
+# Panel de configuración para dimensiones de la plancha
+config_frame = tk.Frame(root, width=150, bd=2, relief="groove")
+config_frame.pack(side="left", fill="y")
+tk.Label(config_frame, text="Configurar plancha", font=("Arial", 10)).pack(pady=10)
+
+# Entradas para tamaño de la plancha
+tk.Label(config_frame, text="Base de la plancha:").pack()
+entry_base = tk.Entry(config_frame)
+entry_base.pack()
+
+tk.Label(config_frame, text="Altura de la plancha:").pack()
+entry_altura = tk.Entry(config_frame)
+entry_altura.pack()
+
+
 
 # Botón de simulación
 btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
