@@ -218,20 +218,56 @@ def dibujar_figura(canvas, nombre):
 
 def actualizar_lista_piezas():
     """
-    Actualiza la lista de piezas mostrada en la interfaz,
-    incluyendo el nombre y área de cada pieza.
+    Muestra las piezas con su nombre, área y dibujo a color en el panel 'Piezas del sistema'.
     """
-    # Limpiar la lista actual
+    colores = [
+        "#FF9999", "#99CCFF", "#99FF99", "#FFCC99", "#CCCCFF", "#FFD699",
+        "#E0B0FF", "#F7BE81", "#82CAFA", "#FFB6C1", "#B0E0E6", "#C3FDB8"
+    ]
+
     for widget in frame_lista_piezas.winfo_children():
         widget.destroy()
-    
-    # Mostrar las piezas actuales
+
     for i, pieza in enumerate(figuras_en_sistema):
-        frame = tk.Frame(frame_lista_piezas)
-        frame.pack(fill="x", pady=2)
-        
-        tk.Label(frame, text=f"{pieza.name} ({i+1})").pack(side="left")
-        tk.Label(frame, text=f"Área: {pieza.polygon.area:.2f}").pack(side="right")
+        color = colores[i % len(colores)]
+
+        contenedor = tk.Frame(frame_lista_piezas, bd=1, relief="solid", padx=4, pady=2)
+        contenedor.pack(fill="x", pady=3)
+
+        # Dibujo de la figura
+        canvas = tk.Canvas(contenedor, width=80, height=60, bg="white")
+        canvas.pack(side="left", padx=4)
+
+        # Obtener coordenadas normalizadas al canvas
+        coords = pieza.polygon.exterior.coords
+        min_x = min(x for x, y in coords)
+        min_y = min(y for x, y in coords)
+        max_x = max(x for x, y in coords)
+        max_y = max(y for x, y in coords)
+        scale = min(60 / (max_x - min_x + 1e-5), 50 / (max_y - min_y + 1e-5))
+
+        desplazada = [
+            ((x - min_x) * scale + 10, (y - min_y) * scale + 5)
+            for x, y in coords
+        ]
+
+        canvas.create_polygon(desplazada, fill=color, outline="black")
+
+        # Info textual y botón
+        info_frame = tk.Frame(contenedor)
+        info_frame.pack(side="left", fill="both", expand=True)
+
+        tk.Label(info_frame, text=f"Pieza {i+1}: {pieza.name}", font=("Arial", 9, "bold")).pack(anchor="w")
+        tk.Label(info_frame, text=f"Área: {pieza.polygon.area:.2f}", font=("Arial", 8)).pack(anchor="w")
+
+        def eliminar(idx=i):
+            confirm = messagebox.askyesno("Eliminar", f"¿Eliminar pieza {idx+1} ({pieza.name})?")
+            if confirm:
+                del figuras_en_sistema[idx]
+                actualizar_lista_piezas()
+
+        tk.Button(info_frame, text="❌", command=eliminar, fg="red", font=("Arial", 8)).pack(anchor="e", pady=2)
+
 
 def simular():
     """
