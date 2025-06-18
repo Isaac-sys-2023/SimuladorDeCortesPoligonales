@@ -6,6 +6,9 @@ from src.core.grasp_solver import GraspSolver
 from src.models import Frame, PolygonPiece
 from src.core.placement_visualizer import PlacementVisualizer
 
+from openpyxl import Workbook
+from tkinter import filedialog
+
 # Lista global para almacenar las piezas añadidas al sistema
 figuras_en_sistema = []
 
@@ -318,10 +321,71 @@ def simular():
             tk.Label(frame_resultados, text=f"Área desperdiciada: {result['waste']:.2f}").pack()
             tk.Label(frame_resultados, text=f"Área total: {(base * altura):.2f}").pack()
             tk.Label(frame_resultados, text=f"Porcentaje de aprovechamiento: {((1 - (result['waste'] / (base * altura)))*100):.2f} %").pack()
+
+            tk.Button(
+                frame_resultados,
+                text="Exportar a Excel",
+                command=lambda: exportar_resultados_excel(result, base, altura)
+            ).pack(pady=10)
         else:
             messagebox.showinfo("Resultado", "No se pudo colocar ninguna pieza")
     except Exception as e:
         messagebox.showerror("Error", f"Error durante la simulación: {str(e)}")
+
+def exportar_resultados_excel(resultados, ancho, alto):
+    archivo = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Archivo Excel", "*.xlsx")])
+    if not archivo:
+        return
+
+    try:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Resultados"
+
+        # Resultados resumen
+        ws["A1"] = "Piezas Colocadas"
+        ws["B1"] = len(resultados["placements"])
+        ws["A2"] = "Piezas no colocadas"
+        ws["B2"] = len(resultados["not_placed"])
+        ws["A3"] = "Área desperdiciada"
+        ws["B3"] = round(resultados["waste"], 2)
+        ws["A4"] = "Área total"
+        ws["B4"] = round(ancho * alto, 2)
+        ws["A5"] = "Porcentaje de aprovechamiento"
+        ws["B5"] = round((1 - (resultados['waste'] / (ancho * alto)))*100, 2)
+
+        # Dimensiones de la plancha
+        ws["D1"] = "Dimensiones de la plancha"
+        ws["D2"] = "Base"
+        ws["E2"] = ancho
+        ws["D3"] = "Altura"
+        ws["E3"] = alto
+
+        # Encabezados para detalles de piezas
+        ws["G1"] = "Número de Pieza"
+        ws["H1"] = "Tipo de Pieza"
+        ws["I1"] = "Área de la pieza"
+
+        fila = 2
+
+        print(vars(resultados["placements"][0]))
+
+        # Piezas colocadas
+        for idx, pieza in enumerate(figuras_en_sistema, start=1):
+            tipo = pieza.name
+            area = pieza.polygon.area
+
+            ws.cell(row=fila, column=7, value=f"Pieza {idx}")
+            ws.cell(row=fila, column=8, value=tipo)
+            ws.cell(row=fila, column=9, value=area)
+            
+            fila += 1
+
+
+        wb.save(archivo)
+        messagebox.showinfo("Éxito", "Resultados exportados a Excel correctamente.")
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo exportar a Excel:\n{str(e)}")
 
 # Configuración de la interfaz gráfica
 root = tk.Tk()
