@@ -233,7 +233,7 @@ def actualizar_lista_piezas():
         tk.Label(frame, text=f"{pieza.name} ({i+1})").pack(side="left")
         tk.Label(frame, text=f"Área: {pieza.polygon.area:.2f}").pack(side="right")
 
-def simular():
+def simular(ancho, alto):
     """
     Ejecuta la simulación de colocación de piezas usando el algoritmo GRASP.
     Muestra los resultados en el gráfico y actualiza la información de resultados.
@@ -244,7 +244,8 @@ def simular():
 
     try:
         # Crear el marco con las dimensiones correctas
-        frame = Frame(100, 60)  # Tamaño del marco
+        ##frame = Frame(100, 60)  # Tamaño del marco
+        frame = Frame(ancho, alto)
         
         # Crear el solver con las piezas y el marco
         solver = GraspSolver(pieces=figuras_en_sistema, frames=[frame])
@@ -285,6 +286,32 @@ def simular():
             messagebox.showinfo("Resultado", "No se pudo colocar ninguna pieza")
     except Exception as e:
         messagebox.showerror("Error", f"Error durante la simulación: {str(e)}")
+
+##
+def pedir_dimensiones_marco():
+    ventana = tk.Toplevel()
+    ventana.title("Dimensiones del Marco")
+    ventana.geometry("250x150")
+
+    tk.Label(ventana, text="Ancho:").pack()
+    entrada_ancho = tk.Entry(ventana)
+    entrada_ancho.pack()
+
+    tk.Label(ventana, text="Alto:").pack()
+    entrada_alto = tk.Entry(ventana)
+    entrada_alto.pack()
+
+    def confirmar():
+        try:
+            ancho = float(entrada_ancho.get())
+            alto = float(entrada_alto.get())
+            ventana.destroy()
+            simular(ancho, alto)  # Llamar a la simulación con los datos
+        except ValueError:
+            messagebox.showerror("Error", "Ingresa valores válidos")
+
+    tk.Button(ventana, text="Simular", command=confirmar).pack(pady=10)
+##
 
 # Configuración de la interfaz gráfica
 root = tk.Tk()
@@ -334,7 +361,8 @@ canvas_scroll.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
 
 # Botón de simulación
-btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
+##btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
+btn_simular = tk.Button(frame_sistema, text="Simular", command=pedir_dimensiones_marco)
 btn_simular.pack(pady=10)
 
 # Lista de figuras predeterminadas disponibles
