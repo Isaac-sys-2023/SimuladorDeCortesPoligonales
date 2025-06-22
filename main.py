@@ -12,6 +12,11 @@ from tkinter import filedialog
 # Lista global para almacenar las piezas añadidas al sistema
 figuras_en_sistema = []
 
+# Variables globales para múltiples planchas
+planchas = []  # Lista de frames (plancha)
+resultados_planchas = []  # Lista de resultados por plancha
+indice_plancha_actual = 0  # Índice de la plancha mostrada
+
 def cordenada_forma(name):
     """
     Retorna las coordenadas de los vértices para cada tipo de figura predeterminada.
@@ -42,25 +47,25 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None):
     """
     Agrega una nueva pieza al sistema con las dimensiones especificadas.
     Si no se proporcionan dimensiones, se usa un tamaño por defecto.
-    
-    :param nombre: Nombre de la figura
-    :type nombre: str
-    :param ancho: Ancho de la pieza
-    :type ancho: float, optional
-    :param alto: Alto de la pieza
-    :type alto: float, optional
+    Valida que la pieza no sea más grande que la plancha definida por el usuario.
     """
     coords = cordenada_forma(nombre)
     if coords:
-        # Crear la pieza con las coordenadas
         pieza = PolygonPiece(nombre, coords)
-        
-        # Escalar la pieza si se proporcionaron dimensiones
-        if ancho is not None and alto is not None:
+        # Obtener dimensiones actuales de la plancha
+        try:
+            base_plancha = float(entry_base.get())
+            altura_plancha = float(entry_altura.get())
+        except Exception:
+            base_plancha = None
+            altura_plancha = None
+        if ancho is not None and alto is not None and base_plancha and altura_plancha:
+            if float(ancho) > base_plancha or float(alto) > altura_plancha:
+                messagebox.showerror("Error", f"La pieza es más grande que la plancha ({base_plancha}x{altura_plancha}) y no puede ser agregada.")
+                return
             pieza.scale_to_size(float(ancho), float(alto))
         else:
-            pieza.scale_to_size(8, 8)  # Tamaño por defecto
-        
+            pieza.scale_to_size(8, 8)
         figuras_en_sistema.append(pieza)
         actualizar_lista_piezas()
 
@@ -270,19 +275,20 @@ def actualizar_lista_piezas():
 
         tk.Button(info_frame, text="❌", command=eliminar, fg="red", font=("Arial", 8)).pack(anchor="e", pady=2)
 
-
-
 def simular():
     """
     Ejecuta la simulación de colocación de piezas usando el algoritmo GRASP.
-    Muestra los resultados en el gráfico y actualiza la información de resultados.
+    Ahora soporta múltiples planchas: si una pieza no cabe en la plancha actual,
+    se crea una nueva plancha y se intenta colocar ahí solo las piezas no colocadas.
+    La visualización permite navegar entre planchas generadas.
     """
+    global planchas, resultados_planchas, indice_plancha_actual
     if not figuras_en_sistema:
         messagebox.showwarning("Advertencia", "No hay piezas para simular")
         return
 
     try:
-        # Crear el marco con las dimensiones correctas
+        # Obtener dimensiones de la plancha ingresadas por el usuario
         try:
             base = float(entry_base.get())
             altura = float(entry_altura.get())
@@ -290,46 +296,99 @@ def simular():
             messagebox.showerror("Error", "Ingresa valores numéricos válidos para base y altura de la plancha.")
             return
 
-        frame = Frame(base, altura)
-        solver = GraspSolver(pieces=figuras_en_sistema, frames=[frame])
-        result = solver.solve()
+        # Inicializar variables para el manejo de múltiples planchas
+        piezas_restantes = figuras_en_sistema[:]  # Copia de las piezas a colocar
+        planchas = []  # Lista de frames (una por cada plancha usada)
+        resultados_planchas = []  # Resultados de la simulación por plancha
+        indice_plancha_actual = 0  # Índice de la plancha mostrada
 
-        if result["placements"]:
-            for widget in frame_grafico.winfo_children():
-                widget.destroy()
+        # Límite de iteraciones para evitar bucles infinitos
+        max_iter = len(piezas_restantes)
+        iter_count = 0
+        while piezas_restantes and iter_count < max_iter:
+            # Crear una nueva plancha con las dimensiones del usuario
+            frame = Frame(base, altura)
+            # Solo se intentan colocar las piezas que no han sido colocadas en planchas anteriores
+            solver = GraspSolver(pieces=piezas_restantes, frames=[frame])
+            result = solver.solve()
+            planchas.append(frame)
+            resultados_planchas.append(result)
+            # Solo las piezas no colocadas pasan a la siguiente plancha
+            piezas_restantes = result["not_placed"]
+            # Si no se pudo colocar ninguna pieza nueva, romper para evitar bucle infinito
+            if not result["placements"]:
+                break
+            iter_count += 1
 
-            fig = plt.Figure(figsize=(6, 6))
-            canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-
-            visualizer = PlacementVisualizer(
-                frames=[frame],
-                placements=result["placements"],
-                not_placed=result["not_placed"],
-                waste=result["waste"]
-            )
-            visualizer.visualize(fig)
-            canvas.draw()
-
-            for widget in frame_resultados.winfo_children():
-                widget.destroy()
-
-            tk.Label(frame_resultados, text="Resultados", font=("Arial", 12, "bold")).pack(pady=10)
-            tk.Label(frame_resultados, text=f"Piezas colocadas: {len(result['placements'])}").pack()
-            tk.Label(frame_resultados, text=f"Piezas no colocadas: {len(result['not_placed'])}").pack()
-            tk.Label(frame_resultados, text=f"Área desperdiciada: {result['waste']:.2f}").pack()
-            tk.Label(frame_resultados, text=f"Área total: {(base * altura):.2f}").pack()
-            tk.Label(frame_resultados, text=f"Porcentaje de aprovechamiento: {((1 - (result['waste'] / (base * altura)))*100):.2f} %").pack()
-
-            tk.Button(
-                frame_resultados,
-                text="Exportar a Excel",
-                command=lambda: exportar_resultados_excel(result, base, altura)
-            ).pack(pady=10)
+        # Mostrar la primera plancha si hay resultados
+        if resultados_planchas:
+            mostrar_plancha(0)
         else:
             messagebox.showinfo("Resultado", "No se pudo colocar ninguna pieza")
     except Exception as e:
         messagebox.showerror("Error", f"Error durante la simulación: {str(e)}")
+
+def mostrar_plancha(indice):
+    """
+    Muestra la visualización y resultados de la plancha en la posición 'indice'.
+    Permite navegar entre planchas usando los botones 'Anterior' y 'Siguiente'.
+    """
+    global indice_plancha_actual
+    if not resultados_planchas:
+        return
+    indice_plancha_actual = indice
+    result = resultados_planchas[indice]
+    frame = planchas[indice]
+    base = frame.width
+    altura = frame.height
+
+    # Limpiar el canvas del gráfico
+    for widget in frame_grafico.winfo_children():
+        widget.destroy()
+
+    # Crear la visualización de la plancha actual
+    fig = plt.Figure(figsize=(6, 6))
+    canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
+    canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    visualizer = PlacementVisualizer(
+        frames=[frame],
+        placements=result["placements"],
+        not_placed=result["not_placed"],
+        waste=result["waste"]
+    )
+    visualizer.visualize(fig)
+    canvas.draw()
+
+    # Actualizar resultados y controles de navegación
+    for widget in frame_resultados.winfo_children():
+        widget.destroy()
+
+    tk.Label(frame_resultados, text=f"Resultados - Plancha {indice+1} de {len(planchas)}", font=("Arial", 12, "bold")).pack(pady=10)
+    tk.Label(frame_resultados, text=f"Piezas colocadas: {len(result['placements'])}").pack()
+    tk.Label(frame_resultados, text=f"Piezas no colocadas: {len(result['not_placed'])}").pack()
+    tk.Label(frame_resultados, text=f"Área desperdiciada: {result['waste']:.2f}").pack()
+    tk.Label(frame_resultados, text=f"Área total: {(base * altura):.2f}").pack()
+    tk.Label(frame_resultados, text=f"Porcentaje de aprovechamiento: {((1 - (result['waste'] / (base * altura)))*100):.2f} %").pack()
+
+    # Botones para navegar entre planchas
+    nav_frame = tk.Frame(frame_resultados)
+    nav_frame.pack(pady=10)
+    btn_prev = tk.Button(nav_frame, text="Anterior", command=lambda: mostrar_plancha(max(0, indice_plancha_actual-1)))
+    btn_prev.pack(side="left", padx=5)
+    btn_next = tk.Button(nav_frame, text="Siguiente", command=lambda: mostrar_plancha(min(len(planchas)-1, indice_plancha_actual+1)))
+    btn_next.pack(side="left", padx=5)
+    if indice_plancha_actual == 0:
+        btn_prev.config(state="disabled")
+    if indice_plancha_actual == len(planchas)-1:
+        btn_next.config(state="disabled")
+
+    # Botón de exportar solo para la plancha actual
+    tk.Button(
+        frame_resultados,
+        text="Exportar a Excel",
+        command=lambda: exportar_resultados_excel(result, base, altura)
+    ).pack(pady=10)
 
 def exportar_resultados_excel(resultados, ancho, alto):
     archivo = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Archivo Excel", "*.xlsx")])
@@ -446,8 +505,6 @@ entry_base.pack()
 tk.Label(config_frame, text="Altura de la plancha:").pack()
 entry_altura = tk.Entry(config_frame)
 entry_altura.pack()
-
-
 
 # Botón de simulación
 btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
