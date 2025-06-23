@@ -5,6 +5,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from src.core.grasp_solver import GraspSolver
 from src.models import Frame, PolygonPiece
 from src.core.placement_visualizer import PlacementVisualizer
+import json
+
 
 from openpyxl import Workbook
 from tkinter import filedialog
@@ -213,6 +215,55 @@ def abrir_ventana_datos(nombre_figura):
             messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
 
     tk.Button(ventana, text="Aceptar", command=calcular_dimensiones).pack(pady=10)
+
+def guardar_json():
+    datos = {
+        "plancha": {
+            "base": float(entry_base.get()),
+            "altura": float(entry_altura.get())
+        },
+        "piezas": [
+            {
+                "nombre": pieza.name,
+                "ancho": pieza.polygon.bounds[2] - pieza.polygon.bounds[0],
+                "alto": pieza.polygon.bounds[3] - pieza.polygon.bounds[1],
+                "area": pieza.polygon.area
+            }
+            for pieza in figuras_en_sistema
+        ]
+    }
+    archivo = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+    if archivo:
+        with open(archivo, "w") as f:
+            json.dump(datos, f, indent=4)
+        messagebox.showinfo("Éxito", "Datos guardados en JSON.")
+
+def cargar_json():
+    archivo = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+    if not archivo:
+        return
+    try:
+        with open(archivo, "r") as f:
+            datos = json.load(f)
+        
+        # Cargar plancha
+        entry_base.delete(0, tk.END)
+        entry_base.insert(0, datos["plancha"]["base"])
+        entry_altura.delete(0, tk.END)
+        entry_altura.insert(0, datos["plancha"]["altura"])
+
+        # Cargar piezas
+        figuras_en_sistema.clear()
+        for pieza_data in datos["piezas"]:
+            agregar_figura_sistema(
+                pieza_data["nombre"],
+                pieza_data["ancho"],
+                pieza_data["alto"]
+            )
+        actualizar_lista_piezas()
+        messagebox.showinfo("Éxito", "Datos cargados desde JSON.")
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo cargar el archivo: {str(e)}")
 
 def dibujar_figura(canvas, nombre, color):
     """
@@ -508,6 +559,8 @@ entry_base.pack()
 tk.Label(config_frame, text="Altura de la plancha:").pack()
 entry_altura = tk.Entry(config_frame)
 entry_altura.pack()
+tk.Button(config_frame, text="Guardar JSON", command=guardar_json).pack(pady=5)
+tk.Button(config_frame, text="Cargar JSON", command=cargar_json).pack(pady=5)
 
 # Botón de simulación
 btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
