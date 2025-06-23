@@ -48,6 +48,7 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None):
     Agrega una nueva pieza al sistema con las dimensiones especificadas.
     Si no se proporcionan dimensiones, se usa un tamaño por defecto.
     Valida que la pieza no sea más grande que la plancha definida por el usuario.
+    Asigna un identificador único (pieza 1, pieza 2, ...) a cada pieza.
     """
     coords = cordenada_forma(nombre)
     if coords:
@@ -66,6 +67,8 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None):
             pieza.scale_to_size(float(ancho), float(alto))
         else:
             pieza.scale_to_size(8, 8)
+        # Asignar identificador único
+        pieza.etiqueta = f"pieza {len(figuras_en_sistema)+1}"
         figuras_en_sistema.append(pieza)
         actualizar_lista_piezas()
 

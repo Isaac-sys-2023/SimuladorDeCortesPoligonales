@@ -47,7 +47,10 @@ class PolygonPiece:
 
     def move(self, dx, dy):
         moved_poly = translate(self.polygon, dx, dy)
-        return PolygonPiece(self.name, list(moved_poly.exterior.coords)[:-1])
+        nueva_pieza = PolygonPiece(self.name, list(moved_poly.exterior.coords)[:-1])
+        if hasattr(self, 'etiqueta'):
+            nueva_pieza.etiqueta = self.etiqueta
+        return nueva_pieza
 
     def reflect(self):
         reflected = [(-x, -y) for (x, y) in self.vertices]

@@ -153,12 +153,13 @@ class PlacementVisualizer:
                 label=None,
             )
             ax.add_patch(patch)
-            # Etiqueta con el nombre de la pieza
+            # Etiqueta con el identificador único de la pieza
+            etiqueta = getattr(placement.piece, 'etiqueta', placement.piece.name)
             centroid = poly.centroid
             ax.text(
                 centroid.x,
                 centroid.y,
-                placement.piece.name,
+                etiqueta,
                 fontsize=8,
                 ha="center",
                 va="center",
@@ -181,11 +182,12 @@ class PlacementVisualizer:
                     label="No colocada" if i == 0 else "",
                 )
                 ax.add_patch(patch)
+                etiqueta = getattr(piece, 'etiqueta', piece.name)
                 centroid = moved_poly.centroid
                 ax.text(
                     centroid.x,
                     centroid.y,
-                    piece.name,
+                    etiqueta,
                     fontsize=8,
                     ha="center",
                     va="center",
