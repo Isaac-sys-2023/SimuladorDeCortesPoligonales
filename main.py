@@ -12,6 +12,14 @@ import json
 from openpyxl import Workbook
 from tkinter import filedialog
 
+
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
+from io import BytesIO
+from tkinter import messagebox
+
 # Lista global para almacenar las piezas añadidas al sistema
 figuras_en_sistema = []
 
@@ -585,67 +593,85 @@ def mostrar_plancha(indice):
     if indice_plancha_actual == len(planchas)-1:
         btn_next.config(state="disabled")
 
-    # Botón de exportar solo para la plancha actual
     tk.Button(
         frame_resultados,
-        text="Exportar a Excel",
-        command=lambda: exportar_resultados_excel(result, base, altura)
+        text="Exportar PDF de todas las planchas",
+        command=exportar_todas_las_planchas_pdf
     ).pack(pady=10)
 
-def exportar_resultados_excel(resultados, ancho, alto):
-    archivo = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Archivo Excel", "*.xlsx")])
+def exportar_todas_las_planchas_pdf():
+    """
+    Exporta un PDF multipágina. Cada página contiene:
+    - El título "Plancha N"
+    - Datos de resultados de esa plancha
+    - Imagen del gráfico generado por PlacementVisualizer
+    """
+    archivo = filedialog.asksaveasfilename(
+        defaultextension=".pdf",
+        filetypes=[("Archivo PDF", "*.pdf")],
+        title="Guardar PDF con todas las planchas"
+    )
     if not archivo:
-        return
+        return  # Usuario canceló
 
     try:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Resultados"
+        # Crear el lienzo PDF
+        c = canvas.Canvas(archivo, pagesize=A4)
+        ancho_pagina, alto_pagina = A4
 
-        # Resultados resumen
-        ws["A1"] = "Piezas Colocadas"
-        ws["B1"] = len(resultados["placements"])
-        ws["A2"] = "Piezas no colocadas"
-        ws["B2"] = len(resultados["not_placed"])
-        ws["A3"] = "Área desperdiciada"
-        ws["B3"] = round(resultados["waste"], 2)
-        ws["A4"] = "Área total"
-        ws["B4"] = round(ancho * alto, 2)
-        ws["A5"] = "Porcentaje de aprovechamiento"
-        ws["B5"] = round((1 - (resultados['waste'] / (ancho * alto)))*100, 2)
+        # Recorrer cada plancha y resultado asociado
+        for i, (frame, result) in enumerate(zip(planchas, resultados_planchas)):
+            # ===================== 1. Generar imagen de la plancha =====================
+            fig = plt.Figure(figsize=(5, 5), dpi=100)
+            visualizer = PlacementVisualizer(
+                frames=[frame],
+                placements=result["placements"],
+                not_placed=result["not_placed"],
+                waste=result["waste"]
+            )
+            visualizer.visualize(fig)
 
-        # Dimensiones de la plancha
-        ws["D1"] = "Dimensiones de la plancha"
-        ws["D2"] = "Base"
-        ws["E2"] = ancho
-        ws["D3"] = "Altura"
-        ws["E3"] = alto
+            # Guardar la imagen en memoria (no en disco)
+            buf = BytesIO()
+            fig.savefig(buf, format='png')
+            buf.seek(0)
 
-        # Encabezados para detalles de piezas
-        ws["G1"] = "Número de Pieza"
-        ws["H1"] = "Tipo de Pieza"
-        ws["I1"] = "Área de la pieza"
+            # ===================== 2. Escribir textos =====================
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(2*cm, alto_pagina - 2*cm, f"Plancha {i+1}")
 
-        fila = 2
+            c.setFont("Helvetica", 12)
+            c.drawString(2*cm, alto_pagina - 3.5*cm, f"Piezas colocadas: {len(result['placements'])}")
+            c.drawString(2*cm, alto_pagina - 4.2*cm, f"Piezas no colocadas: {len(result['not_placed'])}")
+            c.drawString(2*cm, alto_pagina - 4.9*cm, f"Área desperdiciada: {result['waste']:.2f}")
+            c.drawString(2*cm, alto_pagina - 5.6*cm, f"Área total: {frame.width * frame.height:.2f}")
+            porcentaje = (1 - (result['waste'] / (frame.width * frame.height))) * 100
+            c.drawString(2*cm, alto_pagina - 6.3*cm, f"Aprovechamiento: {porcentaje:.2f} %")
 
-        print(vars(resultados["placements"][0]))
+            # ===================== 3. Calcular y mostrar costo total =====================
+            total_dinero_usado = 0.0
+            for p in result["placements"]:
+                area = p.piece.polygon.area
+                pieza_original = next((f for f in figuras_en_sistema if f.name == p.piece.name), None)
+                precio_m2 = getattr(pieza_original, "precio_m2", 0) if pieza_original else 0
+                total_dinero_usado += area * precio_m2
+            c.drawString(2*cm, alto_pagina - 7*cm, f"Total dinero usado: {total_dinero_usado:.2f} Bs.")
 
-        # Piezas colocadas
-        for idx, pieza in enumerate(figuras_en_sistema, start=1):
-            tipo = pieza.name
-            area = pieza.polygon.area
+            # ===================== 4. Dibujar imagen de la plancha =====================
+            # La colocamos desde 2cm desde la izquierda y parte inferior
+            # c.drawImage(buf, 2*cm, 2*cm, width=12*cm, preserveAspectRatio=True, mask='auto')
+            image = ImageReader(buf)
+            c.drawImage(image, 2*cm, 2*cm, width=12*cm, preserveAspectRatio=True, mask='auto')
 
-            ws.cell(row=fila, column=7, value=f"Pieza {idx}")
-            ws.cell(row=fila, column=8, value=tipo)
-            ws.cell(row=fila, column=9, value=area)
-            
-            fila += 1
+            c.showPage()  # Añadir nueva hoja
 
+            buf.close()  # Liberar memoria de imagen
 
-        wb.save(archivo)
-        messagebox.showinfo("Éxito", "Resultados exportados a Excel correctamente.")
+        # ===================== 5. Guardar PDF final =====================
+        c.save()
+        messagebox.showinfo("Éxito", "PDF generado correctamente con todas las planchas.")
     except Exception as e:
-        messagebox.showerror("Error", f"No se pudo exportar a Excel:\n{str(e)}")
+        messagebox.showerror("Error", f"No se pudo generar el PDF:\n{str(e)}")
 
 # Configuración de la interfaz gráfica
 root = tk.Tk()
