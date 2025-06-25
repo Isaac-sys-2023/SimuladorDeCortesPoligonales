@@ -12,7 +12,6 @@ import json
 from openpyxl import Workbook
 from tkinter import filedialog
 
-
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
@@ -67,7 +66,7 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None,precio=0.0, cantidad=1)
         return
 
     for _ in range(int(cantidad)):
-        pieza = PolygonPiece(nombre, coords)
+        pieza = PolygonPiece(nombre, coords,precio)
         
         # Escalar al tamaño especificado
         if ancho is not None and alto is not None:
@@ -283,7 +282,7 @@ def guardar_json():
                 "ancho": pieza.polygon.bounds[2] - pieza.polygon.bounds[0],
                 "alto": pieza.polygon.bounds[3] - pieza.polygon.bounds[1],
                 "area": pieza.polygon.area,
-                "precio": pieza.polygon.precio_m2
+                "precio": pieza.precio_m2
             }
             for pieza in figuras_en_sistema
         ]
@@ -314,12 +313,14 @@ def cargar_json():
             agregar_figura_sistema(
                 pieza_data["nombre"],
                 pieza_data["ancho"],
-                pieza_data["alto"]
+                pieza_data["alto"],
+                pieza_data.get("precio", 0) 
             )
         actualizar_lista_piezas()
         messagebox.showinfo("Éxito", "Datos cargados desde JSON.")
     except Exception as e:
         messagebox.showerror("Error", f"No se pudo cargar el archivo: {str(e)}")
+
 
 def dibujar_figura(canvas, nombre, color):
     """

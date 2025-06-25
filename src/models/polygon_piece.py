@@ -16,11 +16,13 @@ class PolygonPiece:
         vertices: list[tuple[float, float]],
         width: float = 1.0,
         height: float = 1.0,
+        precio: float = 0.0
     ):
         self.name = name
         self.vertices = vertices
         self.width = width
         self.height = height
+        self.precio = precio
         self.polygon = Polygon(vertices)
 
     def scale_to_unit(self):
