@@ -132,6 +132,8 @@ def abrir_ventana_datos(nombre_figura):
         """
         tk.Label(ventana, text=f"{campo.capitalize()}:").pack()
         entrada = tk.Entry(ventana)
+        if campo == "cantidad":
+            entrada.insert(0, "1")  # Valor por defecto
         entrada.pack()
         entradas[campo] = entrada
 
@@ -202,6 +204,12 @@ def abrir_ventana_datos(nombre_figura):
         y agrega la pieza al sistema.
         """
         try:
+            # Validación de cantidad como entero positivo
+            if "cantidad" in entradas:
+                cantidad_str = entradas["cantidad"].get()
+                if not cantidad_str.isdigit() or int(cantidad_str) < 1:
+                    messagebox.showerror("Error", "La cantidad debe ser un número entero positivo.")
+                    return
             if nombre_figura == "cuadrado":
                 lado = float(entradas["lado"].get())
                 ancho = alto = lado
