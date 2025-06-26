@@ -65,20 +65,34 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None,precio=0.0, cantidad=1)
         messagebox.showerror("Error", f"No se encontraron coordenadas para la figura '{nombre}'.")
         return
 
+    # Obtener dimensiones de la plancha
+    try:
+        base_plancha = float(entry_base.get())
+        altura_plancha = float(entry_altura.get())
+    except Exception:
+        messagebox.showerror("Error", "Debes ingresar primero la base y altura de la plancha antes de agregar piezas.")
+        return
+
     for _ in range(int(cantidad)):
         pieza = PolygonPiece(nombre, coords,precio)
-        
         # Escalar al tamaño especificado
         if ancho is not None and alto is not None:
             pieza.scale_to_size(float(ancho), float(alto))
         else:
             pieza.scale_to_size(8, 8)  # Tamaño por defecto
-        
         # Asignar precio por metro cuadrado
         pieza.precio_m2 = float(precio) if precio else 0
-        
         # Etiqueta opcional (puedes ajustarla si quieres)
         pieza.etiqueta = f"Pieza {len(figuras_en_sistema)+1}"
+
+        # Validar que la pieza cabe en la plancha
+        minx, miny, maxx, maxy = pieza.polygon.bounds
+        if maxx > base_plancha or maxy > altura_plancha or minx < 0 or miny < 0:
+            messagebox.showerror(
+                "Error",
+                f"La pieza '{pieza.etiqueta}' excede los límites de la plancha ({base_plancha} x {altura_plancha}).\nNo se agregará."
+            )
+            continue
 
         figuras_en_sistema.append(pieza)
 
@@ -561,14 +575,70 @@ def mostrar_plancha(indice):
     canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    # Guardar el eje para manipular el zoom
+    ax = fig.add_subplot(111)
     visualizer = PlacementVisualizer(
         frames=[frame],
         placements=result["placements"],
         not_placed=result["not_placed"],
         waste=result["waste"]
     )
-    visualizer.visualize(fig)
+    visualizer.visualize(fig, ax=ax)  # Modificamos PlacementVisualizer para aceptar ax opcional
     canvas.draw()
+
+    # --- ZOOM Y PAN ---
+    # Estado de zoom y pan (guardado en el widget para persistencia entre clicks)
+    if not hasattr(canvas, 'zoom_level'):
+        canvas.zoom_level = 1.0
+    if not hasattr(canvas, 'zoom_xlim') or not hasattr(canvas, 'zoom_ylim'):
+        canvas.zoom_xlim = list(ax.get_xlim())
+        canvas.zoom_ylim = list(ax.get_ylim())
+
+    def zoom(factor):
+        canvas.zoom_level *= factor
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xmid = (xlim[0] + xlim[1]) / 2
+        ymid = (ylim[0] + ylim[1]) / 2
+        xsize = (xlim[1] - xlim[0]) / factor
+        ysize = (ylim[1] - ylim[0]) / factor
+        new_xlim = [xmid - xsize/2, xmid + xsize/2]
+        new_ylim = [ymid - ysize/2, ymid + ysize/2]
+        ax.set_xlim(new_xlim)
+        ax.set_ylim(new_ylim)
+        canvas.zoom_xlim = new_xlim
+        canvas.zoom_ylim = new_ylim
+        canvas.draw()
+
+    def pan(dx, dy):
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xsize = xlim[1] - xlim[0]
+        ysize = ylim[1] - ylim[0]
+        ax.set_xlim(xlim[0] + dx * xsize * 0.2, xlim[1] + dx * xsize * 0.2)
+        ax.set_ylim(ylim[0] + dy * ysize * 0.2, ylim[1] + dy * ysize * 0.2)
+        canvas.zoom_xlim = list(ax.get_xlim())
+        canvas.zoom_ylim = list(ax.get_ylim())
+        canvas.draw()
+
+    # Botones de zoom y pan
+    zoom_frame = tk.Frame(frame_grafico)
+    zoom_frame.pack()
+    btn_zoom_in = tk.Button(zoom_frame, text="+", command=lambda: zoom(1.2))
+    btn_zoom_in.pack(side="left")
+    btn_zoom_out = tk.Button(zoom_frame, text="-", command=lambda: zoom(1/1.2))
+    btn_zoom_out.pack(side="left")
+    # Botones de pan
+    pan_frame = tk.Frame(frame_grafico)
+    pan_frame.pack()
+    btn_pan_up = tk.Button(pan_frame, text="↑", command=lambda: pan(0, 1))
+    btn_pan_up.grid(row=0, column=1)
+    btn_pan_left = tk.Button(pan_frame, text="←", command=lambda: pan(-1, 0))
+    btn_pan_left.grid(row=1, column=0)
+    btn_pan_right = tk.Button(pan_frame, text="→", command=lambda: pan(1, 0))
+    btn_pan_right.grid(row=1, column=2)
+    btn_pan_down = tk.Button(pan_frame, text="↓", command=lambda: pan(0, -1))
+    btn_pan_down.grid(row=2, column=1)
 
     # Actualizar resultados y controles de navegación
     for widget in frame_resultados.winfo_children():
@@ -748,7 +818,7 @@ tk.Button(config_frame, text="Cargar JSON", command=cargar_json).pack(pady=5)
 tk.Button(config_frame, text="Dibujar figura personalizada", command=abrir_ventana_dibujo).pack(pady=5)
 
 # Botón de simulación
-btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
+btn_simular = tk.Button(config_frame, text="Simular", command=simular)
 btn_simular.pack(pady=10)
 
 # Lista de figuras predeterminadas disponibles
