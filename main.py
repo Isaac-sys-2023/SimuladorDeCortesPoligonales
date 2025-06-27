@@ -366,12 +366,12 @@ def actualizar_lista_piezas():
         "#E0B0FF", "#F7BE81", "#82CAFA", "#FFB6C1", "#B0E0E6", "#C3FDB8"
     ]
 
-    for widget in frame_lista_piezas.winfo_children():
+    for widget in scrollable_piezas.winfo_children():
         widget.destroy()
 
     for i, pieza in enumerate(figuras_en_sistema):
         color = colores[i % len(colores)]
-        contenedor = tk.Frame(frame_lista_piezas, bd=1, relief="solid", padx=4, pady=2)
+        contenedor = tk.Frame(scrollable_piezas, bd=1, relief="solid", padx=4, pady=2)
         contenedor.pack(fill="x", pady=3)
 
         # Dibujo de la figura
@@ -772,8 +772,24 @@ frame_sistema.pack(side="left", fill="y")
 tk.Label(frame_sistema, text="Piezas del sistema", font=("Arial", 10)).pack()
 
 # Lista de piezas
-frame_lista_piezas = tk.Frame(frame_sistema)
-frame_lista_piezas.pack(fill="both", expand=True)
+# Scroll en "Piezas del sistema"
+canvas_piezas = tk.Canvas(frame_sistema, width=180, height=500)
+scrollbar_piezas = tk.Scrollbar(frame_sistema, orient="vertical", command=canvas_piezas.yview)
+scrollable_piezas = tk.Frame(canvas_piezas)
+
+# Vincular el redimensionamiento del frame al canvas
+scrollable_piezas.bind(
+    "<Configure>",
+    lambda e: canvas_piezas.configure(
+        scrollregion=canvas_piezas.bbox("all")
+    )
+)
+
+canvas_piezas.create_window((0, 0), window=scrollable_piezas, anchor="nw")
+canvas_piezas.configure(yscrollcommand=scrollbar_piezas.set)
+
+canvas_piezas.pack(side="left", fill="both", expand=True)
+scrollbar_piezas.pack(side="right", fill="y")
 
 # Panel de figuras predeterminadas
 frame_predet = tk.Frame(root, width=160, bd=2, relief="groove")
