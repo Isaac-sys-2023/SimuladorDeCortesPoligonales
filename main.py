@@ -53,7 +53,7 @@ def cordenada_forma(name):
     }
     return shapes.get(name, [])
 
-def agregar_figura_sistema(nombre, ancho=None, alto=None,precio=0.0, cantidad=1):
+def agregar_figura_sistema(nombre, ancho=None, alto=None, cantidad=1):
     """
     Agrega una nueva pieza al sistema con las dimensiones especificadas.
     Si no se proporcionan dimensiones, se usa un tamaño por defecto.
@@ -65,20 +65,39 @@ def agregar_figura_sistema(nombre, ancho=None, alto=None,precio=0.0, cantidad=1)
         messagebox.showerror("Error", f"No se encontraron coordenadas para la figura '{nombre}'.")
         return
 
+    # Obtener dimensiones de la plancha
+    try:
+        base_plancha = float(entry_base.get())
+        altura_plancha = float(entry_altura.get())
+    except Exception:
+        messagebox.showerror("Error", "Debes ingresar primero la base y altura  de la plancha antes de agregar piezas.")
+        return
+
     for _ in range(int(cantidad)):
-        pieza = PolygonPiece(nombre, coords,precio)
-        
+        pieza = PolygonPiece(nombre, coords)
         # Escalar al tamaño especificado
         if ancho is not None and alto is not None:
             pieza.scale_to_size(float(ancho), float(alto))
         else:
             pieza.scale_to_size(8, 8)  # Tamaño por defecto
-        
         # Asignar precio por metro cuadrado
-        pieza.precio_m2 = float(precio) if precio else 0
-        
+        try:
+            precio_plancha = float(entry_precio_m2.get())
+        except:
+            precio_plancha = 0
+        pieza.precio_m2 = precio_plancha
+
         # Etiqueta opcional (puedes ajustarla si quieres)
         pieza.etiqueta = f"Pieza {len(figuras_en_sistema)+1}"
+
+        # Validar que la pieza cabe en la plancha
+        minx, miny, maxx, maxy = pieza.polygon.bounds
+        if maxx > base_plancha or maxy > altura_plancha or minx < 0 or miny < 0:
+            messagebox.showerror(
+                "Error",
+                f"La pieza '{pieza.etiqueta}' excede los límites de la plancha ({base_plancha} x {altura_plancha}).\nNo se agregará."
+            )
+            continue
 
         figuras_en_sistema.append(pieza)
 
@@ -140,62 +159,51 @@ def abrir_ventana_datos(nombre_figura):
     # Campos específicos según la figura
     if nombre_figura == "cuadrado":
         agregar_campo("lado")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "rectangulo":
         agregar_campo("base")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "triangulo":
         agregar_campo("base")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura in ["pentagono", "hexagono"]:
         agregar_campo("lado")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "rombo":
         agregar_campo("diagonal mayor")
         agregar_campo("diagonal menor")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "trapecio":
         agregar_campo("base mayor")
         agregar_campo("base menor")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "trapezoide":
         agregar_campo("base mayor")
         agregar_campo("base menor")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "trapecio_inclinado":
         agregar_campo("base mayor")
         agregar_campo("base menor")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "escalera":
         agregar_campo("altura total")
         agregar_campo("ancho total")
         agregar_campo("altura grada")
         agregar_campo("ancho grada")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "figura_L":
         agregar_campo("ancho brazo")
         agregar_campo("alto brazo")
         agregar_campo("ancho base")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
     elif nombre_figura == "punta":
         agregar_campo("base")
         agregar_campo("altura")
-        agregar_campo("precioXCm")
         agregar_campo("cantidad")
 
     def calcular_dimensiones():
@@ -213,30 +221,25 @@ def abrir_ventana_datos(nombre_figura):
             if nombre_figura == "cuadrado":
                 lado = float(entradas["lado"].get())
                 ancho = alto = lado
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
                 
             elif nombre_figura == "rectangulo":
                 ancho = float(entradas["base"].get())
                 alto = float(entradas["altura"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
 
             elif nombre_figura == "triangulo":
                 ancho = float(entradas["base"].get())
                 alto = float(entradas["altura"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
 
             elif nombre_figura == "pentagono":
                 lado = float(entradas["lado"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
                 # Aproximación para pentágono regular
                 ancho = alto = lado * 1.7
             elif nombre_figura == "hexagono":
                 lado = float(entradas["lado"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
                 # Aproximación para hexágono regular
                 ancho = lado * 2
@@ -244,7 +247,6 @@ def abrir_ventana_datos(nombre_figura):
             elif nombre_figura == "rombo":
                 d1 = float(entradas["diagonal mayor"].get())
                 d2 = float(entradas["diagonal menor"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
                 ancho = d1
                 alto = d2
@@ -252,27 +254,23 @@ def abrir_ventana_datos(nombre_figura):
                 b1 = float(entradas["base mayor"].get())
                 b2 = float(entradas["base menor"].get())
                 h = float(entradas["altura"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
                 ancho = max(b1, b2)
                 alto = h
             elif nombre_figura == "escalera":
                 ancho = float(entradas["ancho total"].get())
                 alto = float(entradas["altura total"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
             elif nombre_figura == "figura_L":
                 ancho = float(entradas["ancho brazo"].get()) + float(entradas["ancho base"].get())
                 alto = float(entradas["alto brazo"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
             elif nombre_figura == "punta":
                 ancho = float(entradas["base"].get())
                 alto = float(entradas["altura"].get())
-                precio = float(entradas["precioXCm"].get())
                 cantidad = float(entradas["cantidad"].get())
 
-            agregar_figura_sistema(nombre_figura, ancho, alto,precio,cantidad)
+            agregar_figura_sistema(nombre_figura, ancho, alto,cantidad)
             ventana.destroy()
         except ValueError:
             messagebox.showerror("Error", "Por favor ingrese valores numéricos válidos")
@@ -282,15 +280,15 @@ def guardar_json():
     datos = {
         "plancha": {
             "base": float(entry_base.get()),
-            "altura": float(entry_altura.get())
+            "altura": float(entry_altura.get()),
+            "precio_m2": float(entry_precio_m2.get())
         },
         "piezas": [
             {
                 "nombre": pieza.name,
                 "ancho": pieza.polygon.bounds[2] - pieza.polygon.bounds[0],
                 "alto": pieza.polygon.bounds[3] - pieza.polygon.bounds[1],
-                "area": pieza.polygon.area,
-                "precio": pieza.precio_m2
+                "area": pieza.polygon.area
             }
             for pieza in figuras_en_sistema
         ]
@@ -314,6 +312,9 @@ def cargar_json():
         entry_base.insert(0, datos["plancha"]["base"])
         entry_altura.delete(0, tk.END)
         entry_altura.insert(0, datos["plancha"]["altura"])
+        if "precio_m2" in datos["plancha"]:
+            entry_precio_m2.delete(0, tk.END)
+            entry_precio_m2.insert(0, datos["plancha"]["precio_m2"])
 
         # Cargar piezas
         figuras_en_sistema.clear()
@@ -321,8 +322,7 @@ def cargar_json():
             agregar_figura_sistema(
                 pieza_data["nombre"],
                 pieza_data["ancho"],
-                pieza_data["alto"],
-                pieza_data.get("precio", 0) 
+                pieza_data["alto"]
             )
         actualizar_lista_piezas()
         messagebox.showinfo("Éxito", "Datos cargados desde JSON.")
@@ -352,12 +352,12 @@ def actualizar_lista_piezas():
         "#E0B0FF", "#F7BE81", "#82CAFA", "#FFB6C1", "#B0E0E6", "#C3FDB8"
     ]
 
-    for widget in frame_lista_piezas.winfo_children():
+    for widget in scrollable_piezas.winfo_children():
         widget.destroy()
 
     for i, pieza in enumerate(figuras_en_sistema):
         color = colores[i % len(colores)]
-        contenedor = tk.Frame(frame_lista_piezas, bd=1, relief="solid", padx=4, pady=2)
+        contenedor = tk.Frame(scrollable_piezas, bd=1, relief="solid", padx=4, pady=2)
         contenedor.pack(fill="x", pady=3)
 
         # Dibujo de la figura
@@ -543,14 +543,70 @@ def mostrar_plancha(indice):
     canvas = FigureCanvasTkAgg(fig, master=frame_grafico)
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    # Guardar el eje para manipular el zoom
+    ax = fig.add_subplot(111)
     visualizer = PlacementVisualizer(
         frames=[frame],
         placements=result["placements"],
         not_placed=result["not_placed"],
         waste=result["waste"]
     )
-    visualizer.visualize(fig)
+    visualizer.visualize(fig, ax=ax)  # Modificamos PlacementVisualizer para aceptar ax opcional
     canvas.draw()
+
+    # --- ZOOM Y PAN ---
+    # Estado de zoom y pan (guardado en el widget para persistencia entre clicks)
+    if not hasattr(canvas, 'zoom_level'):
+        canvas.zoom_level = 1.0
+    if not hasattr(canvas, 'zoom_xlim') or not hasattr(canvas, 'zoom_ylim'):
+        canvas.zoom_xlim = list(ax.get_xlim())
+        canvas.zoom_ylim = list(ax.get_ylim())
+
+    def zoom(factor):
+        canvas.zoom_level *= factor
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xmid = (xlim[0] + xlim[1]) / 2
+        ymid = (ylim[0] + ylim[1]) / 2
+        xsize = (xlim[1] - xlim[0]) / factor
+        ysize = (ylim[1] - ylim[0]) / factor
+        new_xlim = [xmid - xsize/2, xmid + xsize/2]
+        new_ylim = [ymid - ysize/2, ymid + ysize/2]
+        ax.set_xlim(new_xlim)
+        ax.set_ylim(new_ylim)
+        canvas.zoom_xlim = new_xlim
+        canvas.zoom_ylim = new_ylim
+        canvas.draw()
+
+    def pan(dx, dy):
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xsize = xlim[1] - xlim[0]
+        ysize = ylim[1] - ylim[0]
+        ax.set_xlim(xlim[0] + dx * xsize * 0.2, xlim[1] + dx * xsize * 0.2)
+        ax.set_ylim(ylim[0] + dy * ysize * 0.2, ylim[1] + dy * ysize * 0.2)
+        canvas.zoom_xlim = list(ax.get_xlim())
+        canvas.zoom_ylim = list(ax.get_ylim())
+        canvas.draw()
+
+    # Botones de zoom y pan
+    zoom_frame = tk.Frame(frame_grafico)
+    zoom_frame.pack()
+    btn_zoom_in = tk.Button(zoom_frame, text="+", command=lambda: zoom(1.2))
+    btn_zoom_in.pack(side="left")
+    btn_zoom_out = tk.Button(zoom_frame, text="-", command=lambda: zoom(1/1.2))
+    btn_zoom_out.pack(side="left")
+    # Botones de pan
+    pan_frame = tk.Frame(frame_grafico)
+    pan_frame.pack()
+    btn_pan_up = tk.Button(pan_frame, text="↑", command=lambda: pan(0, 1))
+    btn_pan_up.grid(row=0, column=1)
+    btn_pan_left = tk.Button(pan_frame, text="←", command=lambda: pan(-1, 0))
+    btn_pan_left.grid(row=1, column=0)
+    btn_pan_right = tk.Button(pan_frame, text="→", command=lambda: pan(1, 0))
+    btn_pan_right.grid(row=1, column=2)
+    btn_pan_down = tk.Button(pan_frame, text="↓", command=lambda: pan(0, -1))
+    btn_pan_down.grid(row=2, column=1)
 
     # Actualizar resultados y controles de navegación
     for widget in frame_resultados.winfo_children():
@@ -684,8 +740,24 @@ frame_sistema.pack(side="left", fill="y")
 tk.Label(frame_sistema, text="Piezas del sistema", font=("Arial", 10)).pack()
 
 # Lista de piezas
-frame_lista_piezas = tk.Frame(frame_sistema)
-frame_lista_piezas.pack(fill="both", expand=True)
+# Scroll en "Piezas del sistema"
+canvas_piezas = tk.Canvas(frame_sistema, width=180, height=500)
+scrollbar_piezas = tk.Scrollbar(frame_sistema, orient="vertical", command=canvas_piezas.yview)
+scrollable_piezas = tk.Frame(canvas_piezas)
+
+# Vincular el redimensionamiento del frame al canvas
+scrollable_piezas.bind(
+    "<Configure>",
+    lambda e: canvas_piezas.configure(
+        scrollregion=canvas_piezas.bbox("all")
+    )
+)
+
+canvas_piezas.create_window((0, 0), window=scrollable_piezas, anchor="nw")
+canvas_piezas.configure(yscrollcommand=scrollbar_piezas.set)
+
+canvas_piezas.pack(side="left", fill="both", expand=True)
+scrollbar_piezas.pack(side="right", fill="y")
 
 # Panel de figuras predeterminadas
 frame_predet = tk.Frame(root, width=160, bd=2, relief="groove")
@@ -724,13 +796,17 @@ entry_base.pack()
 tk.Label(config_frame, text="Altura de la plancha:").pack()
 entry_altura = tk.Entry(config_frame)
 entry_altura.pack()
+tk.Label(config_frame, text="Precio por m² (Bs):").pack()
+entry_precio_m2 = tk.Entry(config_frame)
+entry_precio_m2.pack()
+
 tk.Button(config_frame, text="Guardar JSON", command=guardar_json).pack(pady=5)
 tk.Button(config_frame, text="Cargar JSON", command=cargar_json).pack(pady=5)
 
 tk.Button(config_frame, text="Dibujar figura personalizada", command=abrir_ventana_dibujo).pack(pady=5)
 
 # Botón de simulación
-btn_simular = tk.Button(frame_sistema, text="Simular", command=simular)
+btn_simular = tk.Button(config_frame, text="Simular", command=simular)
 btn_simular.pack(pady=10)
 
 # Lista de figuras predeterminadas disponibles

@@ -120,14 +120,17 @@ class PlacementVisualizer:
         plt.ylabel("Y")
         plt.show()
 
-    def visualize(self, fig):
+    def visualize(self, fig, ax=None):
         """
         Visualiza la colocación en una figura de matplotlib.
         
         :param fig: Figura de matplotlib donde dibujar
         :type fig: matplotlib.figure.Figure
+        :param ax: Eje de matplotlib donde dibujar (opcional)
+        :type ax: matplotlib.axes.Axes or None
         """
-        ax = fig.add_subplot(111)
+        if ax is None:
+            ax = fig.add_subplot(111)
         colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
 
         # Dibujar marcos
