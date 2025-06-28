@@ -389,13 +389,61 @@ def actualizar_lista_piezas():
         tk.Label(info_frame, text=f"Precio: {precio_total:.2f}", font=("Arial", 8)).pack(anchor="w")
 
 
+        # Frame de botones
+        btn_frame = tk.Frame(info_frame)
+        btn_frame.pack(anchor="e", pady=2)
+
         def eliminar(idx=i):
             confirm = messagebox.askyesno("Eliminar", f"¿Eliminar pieza {idx+1} ({pieza.name})?")
             if confirm:
                 del figuras_en_sistema[idx]
                 actualizar_lista_piezas()
 
-        tk.Button(info_frame, text="❌", command=eliminar, fg="red", font=("Arial", 8)).pack(anchor="e", pady=2)
+        def editar(idx=i):
+            editar_pieza(idx)
+
+        # Botón Editar
+        tk.Button(btn_frame, text="✏️", command=editar, fg="white", bg="#1E90FF", font=("Segoe UI Emoji", 10, "bold")).pack(side="left", padx=2)
+
+        # Botón Eliminar
+        tk.Button(btn_frame, text="❌", command=eliminar,  fg="white", bg="red", font=("Segoe UI Emoji", 10, "bold")).pack(side="left", padx=2)
+
+def editar_pieza(idx):
+    pieza = figuras_en_sistema[idx]
+    ventana = tk.Toplevel()
+    ventana.title(f"Editar pieza {idx+1}: {pieza.name}")
+
+    tk.Label(ventana, text="Nombre:").pack()
+    entry_nombre = tk.Entry(ventana)
+    entry_nombre.insert(0, pieza.name)
+    entry_nombre.pack()
+
+    tk.Label(ventana, text="Ancho:").pack()
+    entry_ancho = tk.Entry(ventana)
+    entry_ancho.insert(0, pieza.polygon.bounds[2] - pieza.polygon.bounds[0])
+    entry_ancho.pack()
+
+    tk.Label(ventana, text="Alto:").pack()
+    entry_alto = tk.Entry(ventana)
+    entry_alto.insert(0, pieza.polygon.bounds[3] - pieza.polygon.bounds[1])
+    entry_alto.pack()
+
+    def guardar_cambios():
+        try:
+            # Actualizar atributos
+            pieza.name = entry_nombre.get()
+            ancho = float(entry_ancho.get())
+            alto = float(entry_alto.get())
+
+            # Reescalar la pieza
+            pieza.scale_to_size(ancho, alto)
+
+            ventana.destroy()
+            actualizar_lista_piezas()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar: {str(e)}")
+
+    tk.Button(ventana, text="Guardar cambios", command=guardar_cambios).pack(pady=5)
 
 def abrir_ventana_dibujo():
     ventana = tk.Toplevel()
@@ -846,13 +894,13 @@ frame_resultados.pack(side="left", fill="y")
 tk.Label(frame_resultados, text="Resultados", font=("Arial", 12, "bold")).pack(pady=10)
 
 # Panel de piezas del sistema
-frame_sistema = tk.Frame(root, width=150, bd=2, relief="groove")
+frame_sistema = tk.Frame(root, width=270, bd=2, relief="groove")
 frame_sistema.pack(side="left", fill="y")
 tk.Label(frame_sistema, text="Piezas del sistema", font=("Arial", 10)).pack()
 
 # Lista de piezas
 # Scroll en "Piezas del sistema"
-canvas_piezas = tk.Canvas(frame_sistema, width=180, height=500)
+canvas_piezas = tk.Canvas(frame_sistema, width=240, height=500)
 scrollbar_piezas = tk.Scrollbar(frame_sistema, orient="vertical", command=canvas_piezas.yview)
 scrollable_piezas = tk.Frame(canvas_piezas)
 
@@ -911,13 +959,21 @@ tk.Label(config_frame, text="Precio por m² (Bs):").pack()
 entry_precio_m2 = tk.Entry(config_frame)
 entry_precio_m2.pack()
 
-tk.Button(config_frame, text="Guardar JSON", command=guardar_json).pack(pady=5)
-tk.Button(config_frame, text="Cargar JSON", command=cargar_json).pack(pady=5)
+# Botón Guardar JSON (Verde = acción positiva)
+tk.Button(config_frame, text="💾 Guardar JSON", command=guardar_json,
+          fg="white", bg="#28A745", font=("Arial", 10, "bold")).pack(pady=5)
 
-tk.Button(config_frame, text="Dibujar figura personalizada", command=abrir_ventana_dibujo).pack(pady=5)
+# Botón Cargar JSON (Azul = acción de entrada)
+tk.Button(config_frame, text="📂 Cargar JSON", command=cargar_json,
+          fg="white", bg="#007BFF", font=("Arial", 10, "bold")).pack(pady=5)
 
-# Botón de simulación
-btn_simular = tk.Button(config_frame, text="Simular", command=simular)
+# Botón Dibujar figura personalizada (Morado = creativo)
+tk.Button(config_frame, text="🎨 Dibujar figura personalizada", command=abrir_ventana_dibujo,
+          fg="white", bg="#8A2BE2", font=("Arial", 10, "bold")).pack(pady=5)
+
+# Botón de Simulación (Gris oscuro = técnico, ejecución)
+btn_simular = tk.Button(config_frame, text="▶️ Simular", command=simular,
+                        fg="white", bg="#343A40", font=("Arial", 10, "bold"))
 btn_simular.pack(pady=10)
 
 # Lista de figuras predeterminadas disponibles
