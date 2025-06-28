@@ -1,5 +1,5 @@
 # Librerías principales
-tkinter
+# tkinter
 matplotlib
 shapely
 
@@ -7,3 +7,4 @@ shapely
 numpy
 pillow
 openpyxl
+reportlab
