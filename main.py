@@ -450,31 +450,13 @@ def abrir_ventana_datos_personalizada(puntos_canvas, canvas_size):
     def agregar_figura():
         try:
             nombre = entry_nombre.get()
-
-            #bounding box
-            min_x = min(px for px, py in puntos_canvas)
-            min_y = min(py for px, py in puntos_canvas)
-            max_x = max(px for px, py in puntos_canvas)
-            max_y = max(py for px, py in puntos_canvas)
-
-            width = max_x - min_x
-            height = max_y - min_y
-
-            if width == 0 or height == 0:
-                messagebox.showerror("Error", "La figura dibujada es inválida (área cero).")
-                return
-
-            #normalizar los puntos al bounding box
-            coords_norm = [
-                (
-                    (px - min_x) / width * 100,
-                    (py - min_y) / height * 100
-                )
-                for px, py in puntos_canvas
-            ]
+            
+            width = float(entry_ancho.get())
+            height = float(entry_alto.get())
 
             # Usa el tamaño real del bounding box como dimensiones
-            pieza = PolygonPiece(nombre, coords_norm)
+            pieza = PolygonPiece(nombre, puntos_canvas)
+            pieza.scale_to_unit()
             pieza.scale_to_size(width, height)
 
             figuras_en_sistema.append(pieza)
