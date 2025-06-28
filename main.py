@@ -648,10 +648,10 @@ def mostrar_plancha(indice):
 
 def exportar_todas_las_planchas_pdf():
     """
-    Exporta un PDF multipágina. Cada página contiene:
-    - El título "Plancha N"
-    - Datos de resultados de esa plancha
-    - Imagen del gráfico generado por PlacementVisualizer
+    Exporta un PDF multipágina con mejor diseño:
+    - Imagen principal más grande y centrada
+    - Tabla de piezas solo si hay piezas colocadas
+    - Ajuste automático de tamaños
     """
     archivo = filedialog.asksaveasfilename(
         defaultextension=".pdf",
@@ -659,17 +659,26 @@ def exportar_todas_las_planchas_pdf():
         title="Guardar PDF con todas las planchas"
     )
     if not archivo:
-        return  # Usuario canceló
+        return
 
     try:
-        # Crear el lienzo PDF
         c = canvas.Canvas(archivo, pagesize=A4)
         ancho_pagina, alto_pagina = A4
 
-        # Recorrer cada plancha y resultado asociado
         for i, (frame, result) in enumerate(zip(planchas, resultados_planchas)):
-            # ===================== 1. Generar imagen de la plancha =====================
-            fig = plt.Figure(figsize=(5, 5), dpi=100)
+            # ========= 1. PREPARAR DATOS =========
+            total_area = frame.width * frame.height
+            porcentaje_aprovechamiento = (1 - (result['waste'] / total_area)) * 100
+            total_dinero_usado = sum(
+                p.piece.polygon.area * getattr(
+                    next((f for f in figuras_en_sistema if f.name == p.piece.name), None),
+                    "precio_m2", 0
+                )
+                for p in result["placements"]
+            )
+
+            # ========= 2. GENERAR IMAGEN PRINCIPAL =========
+            fig = plt.Figure(figsize=(8, 8), dpi=100)  # Tamaño aumentado
             visualizer = PlacementVisualizer(
                 frames=[frame],
                 placements=result["placements"],
@@ -677,48 +686,150 @@ def exportar_todas_las_planchas_pdf():
                 waste=result["waste"]
             )
             visualizer.visualize(fig)
+            
+            # Ajustar márgenes para que ocupe más espacio
+            fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+            
+            buf_plancha = BytesIO()
+            fig.savefig(buf_plancha, format='png', bbox_inches='tight')
+            buf_plancha.seek(0)
 
-            # Guardar la imagen en memoria (no en disco)
-            buf = BytesIO()
-            fig.savefig(buf, format='png')
-            buf.seek(0)
+            # ========= 3. DISEÑO DE PÁGINA =========
+            # --- Encabezado ---
+            c.setFont("Helvetica-Bold", 16)
+            c.drawCentredString(ancho_pagina/2, alto_pagina - 2*cm, f"Plancha {i+1} - Aprovechamiento: {porcentaje_aprovechamiento:.2f}%")
+            
+            # --- Imagen principal (más grande) ---
+            img_width = 14*cm  # Ancho fijo grande
+            img_height = min(14*cm, alto_pagina - 6*cm)  # Altura máxima disponible
+            
+            # Calcular posición centrada
+            img_x = (ancho_pagina - img_width) / 2
+            img_y = alto_pagina - 5*cm - img_height
+            
+            c.drawImage(
+                ImageReader(buf_plancha),
+                img_x, img_y,
+                width=img_width,
+                height=img_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            
+            # --- Estadísticas debajo de la imagen ---
+            y_position = img_y - 1.5*cm
+            c.setFont("Helvetica", 10)
+            c.drawString(2*cm, y_position, f"● Dimensiones: {frame.width:.2f}m x {frame.height:.2f}m")
+            c.drawString(ancho_pagina/2, y_position, f"● Área utilizada: {total_area - result['waste']:.2f}m² de {total_area:.2f}m²")
+            y_position -= 0.7*cm
+            c.drawString(2*cm, y_position, f"● Piezas colocadas: {len(result['placements'])}")
+            c.drawString(ancho_pagina/2, y_position, f"● Piezas no colocadas: {len(result['not_placed'])}")
+            y_position -= 0.7*cm
+            c.drawString(2*cm, y_position, f"● Desperdicio: {result['waste']:.2f}m² ({result['waste']/total_area*100:.2f}%)")
+            c.drawString(ancho_pagina/2, y_position, f"● Costo total: {total_dinero_usado:.2f} Bs.")
+            y_position -= 0.7*cm
+            c.drawString(2*cm, y_position, f"● Precio plancha por m²: {float(entry_precio_m2.get()):.2f} Bs.")
+            c.drawString(ancho_pagina/2, y_position, f"● Precio total de la plancha: {(float(entry_precio_m2.get())*total_area):.2f} Bs.")
+            y_position -= 1.5*cm
 
-            # ===================== 2. Escribir textos =====================
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(2*cm, alto_pagina - 2*cm, f"Plancha {i+1}")
+            # ========= 4. TABLA DE PIEZAS (solo si hay piezas) =========
+            if result["placements"]:
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(2*cm, y_position, "Detalle de todas las piezas colocadas:")
+                y_position -= 0.7*cm
+                
+                # Encabezados de tabla mejorados
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(2*cm, y_position, "Pieza")
+                c.drawString(4*cm, y_position, "Dimensión")
+                c.drawString(7*cm, y_position, "Área")
+                c.drawString(10*cm, y_position, "Costo")
+                c.drawString(13*cm, y_position, "Imagen")
+                y_position -= 0.7*cm
+                
+                # Línea divisoria
+                c.line(2*cm, y_position + 0.2*cm, ancho_pagina - 2*cm, y_position + 0.2*cm)
+                y_position -= 0.5*cm
 
-            c.setFont("Helvetica", 12)
-            c.drawString(2*cm, alto_pagina - 3.5*cm, f"Piezas colocadas: {len(result['placements'])}")
-            c.drawString(2*cm, alto_pagina - 4.2*cm, f"Piezas no colocadas: {len(result['not_placed'])}")
-            c.drawString(2*cm, alto_pagina - 4.9*cm, f"Área desperdiciada: {result['waste']:.2f}")
-            c.drawString(2*cm, alto_pagina - 5.6*cm, f"Área total: {frame.width * frame.height:.2f}")
-            porcentaje = (1 - (result['waste'] / (frame.width * frame.height))) * 100
-            c.drawString(2*cm, alto_pagina - 6.3*cm, f"Aprovechamiento: {porcentaje:.2f} %")
+                placements = result["placements"]
+                
+                # Mostrar TODAS las piezas colocadas
+                for i, p in enumerate(placements): #result["placements"]:
+                    es_ultimo = (i == len(placements) - 1)
 
-            # ===================== 3. Calcular y mostrar costo total =====================
-            total_dinero_usado = 0.0
-            for p in result["placements"]:
-                area = p.piece.polygon.area
-                pieza_original = next((f for f in figuras_en_sistema if f.name == p.piece.name), None)
-                precio_m2 = getattr(pieza_original, "precio_m2", 0) if pieza_original else 0
-                total_dinero_usado += area * precio_m2
-            c.drawString(2*cm, alto_pagina - 7*cm, f"Total dinero usado: {total_dinero_usado:.2f} Bs.")
+                    # Calcular dimensiones de la pieza
+                    bounds = p.piece.polygon.bounds
+                    ancho_pieza = bounds[2] - bounds[0]
+                    alto_pieza = bounds[3] - bounds[1]
 
-            # ===================== 4. Dibujar imagen de la plancha =====================
-            # La colocamos desde 2cm desde la izquierda y parte inferior
-            # c.drawImage(buf, 2*cm, 2*cm, width=12*cm, preserveAspectRatio=True, mask='auto')
-            image = ImageReader(buf)
-            c.drawImage(image, 2*cm, 2*cm, width=12*cm, preserveAspectRatio=True, mask='auto')
+                    # Calcular área y costo
+                    area = p.piece.polygon.area
+                    pieza_original = next((f for f in figuras_en_sistema if f.name == p.piece.name), None)
+                    precio_m2 = getattr(pieza_original, "precio_m2", 0) if pieza_original else 0
+                    costo = area * precio_m2
+                    
+                    # Dibujar información en la tabla
+                    c.setFont("Helvetica", 10)
+                    c.drawString(2*cm, y_position, p.piece.name)
+                    c.drawString(4*cm, y_position, f"{ancho_pieza:.2f} x {alto_pieza:.2f}")
+                    c.drawString(7*cm, y_position, f"{area:.2f}")
+                    c.drawString(10*cm, y_position, f"{costo:.2f} Bs.")
 
-            c.showPage()  # Añadir nueva hoja
+                    # ----- AÑADIR IMAGEN DE LA PIEZA -----
+                    # Crear figura con matplotlib
+                    fig_pieza = plt.Figure(figsize=(1, 1), dpi=50)
+                    ax = fig_pieza.add_subplot(111)
 
-            buf.close()  # Liberar memoria de imagen
+                    # Obtener color original de la pieza (si existe)
+                    color = getattr(pieza_original, "color", "#CCCCCC")  # Gris por defecto
+                    
+                    # Dibujar la pieza con su color
+                    polygon = p.piece.polygon
+                    x, y = polygon.exterior.xy
+                    ax.fill(x, y, color=color)
+                    ax.plot(x, y, color='black', linewidth=0.5)
+                    ax.set_aspect('equal')
+                    ax.axis('off')
+                    
+                    # Guardar imagen temporal
+                    buf_pieza = BytesIO()
+                    fig_pieza.savefig(buf_pieza, format='png', bbox_inches='tight', pad_inches=0.1)
+                    buf_pieza.seek(0)
+                    
+                    # Dibujar imagen en PDF (tamaño pequeño)
+                    c.drawImage(ImageReader(buf_pieza), 13*cm, y_position - 0.5*cm, 
+                            width=1*cm, height=1*cm, preserveAspectRatio=True)
+                    buf_pieza.close()
+                    plt.close(fig_pieza)  # Liberar memoria de matplotlib
+                    # --------------------------------------
 
-        # ===================== 5. Guardar PDF final =====================
+                    y_position -= 0.7*cm
+                    
+                    # Nueva página si no hay espacio
+                    if y_position < 2*cm and not es_ultimo: 
+                        c.showPage()
+                        y_position = alto_pagina - 2*cm
+                        # Redibujar encabezados en nueva página
+                        c.setFont("Helvetica-Bold", 12)
+                        c.drawString(2*cm, y_position, "Detalle de piezas (continuación):")
+                        y_position -= 0.7*cm
+                        c.setFont("Helvetica-Bold", 10)
+                        c.drawString(2*cm, y_position, "Pieza")
+                        c.drawString(4*cm, y_position, "Dimimensión")
+                        c.drawString(7*cm, y_position, "Área")
+                        c.drawString(10*cm, y_position, "Costo")
+                        c.drawString(13*cm, y_position, "Imagen")
+                        y_position -= 0.7*cm
+                        c.line(2*cm, y_position + 0.2*cm, ancho_pagina - 2*cm, y_position + 0.2*cm)
+                        y_position -= 0.5*cm
+
+            buf_plancha.close()
+            c.showPage()
+
         c.save()
-        messagebox.showinfo("Éxito", "PDF generado correctamente con todas las planchas.")
+        messagebox.showinfo("Éxito", "PDF generado correctamente con todas las planchas y piezas.")
     except Exception as e:
-        messagebox.showerror("Error", f"No se pudo generar el PDF:\n{str(e)}")
+        messagebox.showerror("Error", f"Error al generar PDF:\n{str(e)}")
 
 # Configuración de la interfaz gráfica
 root = tk.Tk()
