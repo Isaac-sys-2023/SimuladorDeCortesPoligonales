@@ -412,38 +412,112 @@ def editar_pieza(idx):
     pieza = figuras_en_sistema[idx]
     ventana = tk.Toplevel()
     ventana.title(f"Editar pieza {idx+1}: {pieza.name}")
+    ventana.geometry("300x300")
 
-    tk.Label(ventana, text="Nombre:").pack()
-    entry_nombre = tk.Entry(ventana)
-    entry_nombre.insert(0, pieza.name)
-    entry_nombre.pack()
+    entradas = {}
 
-    tk.Label(ventana, text="Ancho:").pack()
-    entry_ancho = tk.Entry(ventana)
-    entry_ancho.insert(0, pieza.polygon.bounds[2] - pieza.polygon.bounds[0])
-    entry_ancho.pack()
+    def agregar_campo(nombre, valor_actual):
+        tk.Label(ventana, text=f"{nombre.capitalize()}:").pack()
+        entrada = tk.Entry(ventana)
+        entrada.insert(0, str(valor_actual))
+        entrada.pack()
+        entradas[nombre] = entrada
 
-    tk.Label(ventana, text="Alto:").pack()
-    entry_alto = tk.Entry(ventana)
-    entry_alto.insert(0, pieza.polygon.bounds[3] - pieza.polygon.bounds[1])
-    entry_alto.pack()
+    # Mostrar campos según tipo de figura
+    tipo = pieza.name.lower()
+
+    if tipo == "cuadrado":
+        lado = pieza.polygon.bounds[2] - pieza.polygon.bounds[0]
+        agregar_campo("lado", lado)
+
+    elif tipo == "rectangulo" or tipo == "triangulo":
+        ancho = pieza.polygon.bounds[2] - pieza.polygon.bounds[0]
+        alto = pieza.polygon.bounds[3] - pieza.polygon.bounds[1]
+        agregar_campo("base", ancho)
+        agregar_campo("altura", alto)
+
+    elif tipo == "pentagono" or tipo == "hexagono":
+        lado = pieza.lado if hasattr(pieza, "lado") else 10  # Usa atributo si lo tiene
+        agregar_campo("lado", lado)
+
+    elif tipo == "rombo":
+        d1 = pieza.diagonal_mayor if hasattr(pieza, "diagonal_mayor") else pieza.polygon.bounds[2]
+        d2 = pieza.diagonal_menor if hasattr(pieza, "diagonal_menor") else pieza.polygon.bounds[3]
+        agregar_campo("diagonal mayor", d1)
+        agregar_campo("diagonal menor", d2)
+
+    elif tipo in ["trapecio", "trapezoide", "trapecio_inclinado"]:
+        agregar_campo("base mayor", pieza.base_mayor if hasattr(pieza, "base_mayor") else 10)
+        agregar_campo("base menor", pieza.base_menor if hasattr(pieza, "base_menor") else 5)
+        agregar_campo("altura", pieza.altura if hasattr(pieza, "altura") else 5)
+
+    elif tipo == "escalera":
+        agregar_campo("ancho total", pieza.ancho if hasattr(pieza, "ancho") else 20)
+        agregar_campo("altura total", pieza.alto if hasattr(pieza, "alto") else 10)
+        agregar_campo("altura grada", pieza.altura_grada if hasattr(pieza, "altura_grada") else 2)
+        agregar_campo("ancho grada", pieza.ancho_grada if hasattr(pieza, "ancho_grada") else 2)
+
+    elif tipo == "figura_l":
+        agregar_campo("ancho brazo", pieza.ancho_brazo if hasattr(pieza, "ancho_brazo") else 5)
+        agregar_campo("alto brazo", pieza.alto_brazo if hasattr(pieza, "alto_brazo") else 10)
+        agregar_campo("ancho base", pieza.ancho_base if hasattr(pieza, "ancho_base") else 5)
+
+    elif tipo == "punta":
+        agregar_campo("base", pieza.base if hasattr(pieza, "base") else 10)
+        agregar_campo("altura", pieza.altura if hasattr(pieza, "altura") else 10)
+    else:
+        ancho = pieza.polygon.bounds[2] - pieza.polygon.bounds[0]
+        alto = pieza.polygon.bounds[3] - pieza.polygon.bounds[1]
+        agregar_campo("base", ancho)
+        agregar_campo("altura", alto)
+
+
+
+    # Común para todas: cantidad
+    if hasattr(pieza, "cantidad"):
+        agregar_campo("cantidad", pieza.cantidad)
 
     def guardar_cambios():
         try:
-            # Actualizar atributos
-            pieza.name = entry_nombre.get()
-            ancho = float(entry_ancho.get())
-            alto = float(entry_alto.get())
+            datos = {k: float(e.get()) for k, e in entradas.items()}
+            nombre = pieza.name.lower()
 
-            # Reescalar la pieza
-            pieza.scale_to_size(ancho, alto)
+            # Eliminar pieza anterior
+            del figuras_en_sistema[idx]
+
+            # Volver a crear con nuevos datos
+            if nombre == "cuadrado":
+                agregar_figura_sistema(nombre, datos["lado"], datos["lado"], datos.get("cantidad", 1))
+
+            elif nombre in ["rectangulo", "triangulo", "punta"]:
+                agregar_figura_sistema(nombre, datos["base"], datos["altura"], datos.get("cantidad", 1))
+
+            elif nombre in ["pentagono", "hexagono"]:
+                agregar_figura_sistema(nombre, datos["lado"], datos["lado"], datos.get("cantidad", 1))
+
+            elif nombre == "rombo":
+                agregar_figura_sistema(nombre, datos["diagonal mayor"], datos["diagonal menor"], datos.get("cantidad", 1))
+
+            elif nombre in ["trapecio", "trapezoide", "trapecio_inclinado"]:
+                agregar_figura_sistema(nombre, datos["base mayor"], datos["base menor"], datos["altura"], datos.get("cantidad", 1))
+
+            elif nombre == "escalera":
+                agregar_figura_sistema(nombre, datos["ancho total"], datos["altura total"], datos["altura grada"], datos["ancho grada"], datos.get("cantidad", 1))
+
+            elif nombre == "figura_l":
+                agregar_figura_sistema(nombre, datos["ancho brazo"], datos["alto brazo"], datos["ancho base"], datos.get("cantidad", 1))
+
+            else:
+                agregar_figura_sistema(nombre, datos["base"], datos["altura"], datos.get("cantidad", 1))
 
             ventana.destroy()
             actualizar_lista_piezas()
+
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar: {str(e)}")
 
-    tk.Button(ventana, text="Guardar cambios", command=guardar_cambios).pack(pady=5)
+    tk.Button(ventana, text="Guardar cambios", command=guardar_cambios).pack(pady=10)
+
 
 def abrir_ventana_dibujo():
     ventana = tk.Toplevel()
@@ -882,7 +956,10 @@ def exportar_todas_las_planchas_pdf():
 # Configuración de la interfaz gráfica
 root = tk.Tk()
 root.title("Sistema de Corte de Piezas")
-root.geometry("1200x600")
+ancho_pantalla = root.winfo_screenwidth()
+alto_pantalla = root.winfo_screenheight()
+root.geometry(f"{ancho_pantalla}x{alto_pantalla}+0+0")
+
 
 # Panel de gráfico
 frame_grafico = tk.Frame(root, width=600, height=600, bd=2, relief="groove")
@@ -948,14 +1025,14 @@ config_frame.pack(side="left", fill="y")
 tk.Label(config_frame, text="Configurar plancha", font=("Arial", 10)).pack(pady=10)
 
 # Entradas para tamaño de la plancha
-tk.Label(config_frame, text="Base de la plancha:").pack()
+tk.Label(config_frame, text="Base de la plancha(cm):").pack()
 entry_base = tk.Entry(config_frame)
 entry_base.pack()
 
-tk.Label(config_frame, text="Altura de la plancha:").pack()
+tk.Label(config_frame, text="Altura de la plancha(cm):").pack()
 entry_altura = tk.Entry(config_frame)
 entry_altura.pack()
-tk.Label(config_frame, text="Precio por m² (Bs):").pack()
+tk.Label(config_frame, text="Precio por cm² (Bs):").pack()
 entry_precio_m2 = tk.Entry(config_frame)
 entry_precio_m2.pack()
 
